@@ -158,11 +158,11 @@ async function deleteDroplet(dropletId: number): Promise<any> {
 }
 
 async function run() {
-  const sequenceIdMessage = "Please provide a valid event id for uploading";
+  const nameIdMessage = "Please provide a valid name id";
   const burnMessage = "Will delete the bucket after a minute";
 
   program
-    .requiredOption("-n, --nameId <type>", sequenceIdMessage)
+    .requiredOption("-n, --nameId <type>", nameIdMessage)
     .option("-b, --burn", burnMessage);
 
   program.parse(process.argv);

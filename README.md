@@ -4,7 +4,7 @@ Spin Up Digital Ocean Droplet, then kill it after a specified amount of time.
 
 # Arguments
 
-**SequenceId:** `-n` or `--nameId`
+**NameId:** `-n` or `--nameId`
 
     - Name of the droplet
 
