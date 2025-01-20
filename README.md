@@ -1,6 +1,13 @@
 # Overview
 
-Spin Up Digital Ocean Droplet, then kill it after a specified amount of time.
+CLI tool for working with Digital Ocean Droplets
+
+- Get all Droplets
+- Get Droplet Overview
+- Create Droplet
+  - Create from Snapshot
+  - Add Firewall
+- Delete Droplet
 
 <br>
 <br>
