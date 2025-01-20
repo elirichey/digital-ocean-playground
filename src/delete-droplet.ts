@@ -8,7 +8,7 @@ import { DigitalOceanCredentials } from "../interfaces/interfaces";
 const { DIGITAL_OCEAN_ACCESS_TOKEN }: DigitalOceanCredentials = process.env;
 
 const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
-const apiUrl = "https://api.digitalocean.com/v2/droplets";
+const apiUrl = "https://api.digitalocean.com/v2";
 
 export async function deleteDroplet(
   dropletId: number
@@ -17,7 +17,7 @@ export async function deleteDroplet(
   console.log({ status: 100, response: startMsg });
 
   try {
-    const response = await fetch(`${apiUrl}/${dropletId}`, {
+    const response = await fetch(`${apiUrl}/droplets/${dropletId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${apiToken}` },
     });

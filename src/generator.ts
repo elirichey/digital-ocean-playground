@@ -7,17 +7,10 @@ import {
   checkDropletExistsByName,
   checkDropletExistsByID,
 } from "./general-droplet";
-import { createDroplet, restoreDropletFromSnapshot } from "./create-droplet";
+import { createDroplet, getFirewallID } from "./create-droplet";
 import { deleteDroplet } from "./delete-droplet";
 
-import {
-  DigitalOceanCredentials,
-  DigitalOceanDroplet,
-} from "../interfaces/interfaces";
-
-const { SNAPSHOT_ID }: DigitalOceanCredentials = process.env;
-
-const snapshotId = SNAPSHOT_ID;
+import { DigitalOceanDroplet } from "../interfaces/interfaces";
 
 export async function listDropletGenerator(
   dropletName?: string,
@@ -44,19 +37,11 @@ export async function createDropletGenerator(
   burn?: boolean
 ): Promise<any> {
   // Check if droplet with dropletName name exists. If so, return the url
-
   let droplet = await checkDropletExistsByName(dropletName);
 
   // If not, create a new droplet
-
   if (!droplet && create) {
     droplet = await createDroplet(dropletName);
-
-    const dropletId: number | undefined = droplet?.id;
-    if (dropletId && snapshotId) {
-      const updated = await restoreDropletFromSnapshot(dropletId);
-      if (updated) droplet = updated;
-    }
 
     // If burn flag is set, delete the droplet after a minute and a half
     const minutes = 1.5 * 60 * 1000;

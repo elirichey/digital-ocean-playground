@@ -47,6 +47,18 @@ async function run() {
     return;
   }
 
+  const createTypeIsUndefined = typeof create === "undefined";
+  const listTypeIsUndefined = typeof list === "undefined";
+  const burnTypeIsUndefined = typeof burn === "undefined";
+  const noType =
+    createTypeIsUndefined && listTypeIsUndefined && burnTypeIsUndefined;
+
+  if (noType) {
+    const noTypeMsg = `Command is missing an action flag: create, list, burn`;
+    console.error({ status: 400, response: noTypeMsg });
+    return;
+  }
+
   // Get Droplet Contents...
 
   if ((dropletName || dropletId) && list) {

@@ -52,4 +52,6 @@ Spin Up Digital Ocean Droplet, then kill it after a specified amount of time.
 
 ```bash
 DIGITAL_OCEAN_ACCESS_TOKEN=""
+SNAPSHOT_ID=""
+FIREWALL_ID=""
 ```

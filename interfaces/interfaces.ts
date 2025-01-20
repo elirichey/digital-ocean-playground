@@ -9,6 +9,7 @@ export interface CLIArguments {
 export interface DigitalOceanCredentials {
   DIGITAL_OCEAN_ACCESS_TOKEN: string;
   SNAPSHOT_ID: string;
+  FIREWALL_ID: string;
 }
 
 export interface Droplet {
@@ -19,6 +20,19 @@ export interface Droplet {
 
 export interface DropletsResponse {
   droplets: DigitalOceanDroplet[];
+}
+
+export interface DropletConfig {
+  name: string;
+  region: string;
+  size: string;
+  image: string;
+  ssh_keys: null;
+  backups: boolean;
+  ipv6: boolean;
+  user_data: null;
+  private_networking: null;
+  volumes: null;
 }
 
 export interface DigitalOceanDroplet {
@@ -76,4 +90,28 @@ export interface DigitalOceanDroplet {
     sizes: any[];
   };
   tags: any[];
+}
+
+export interface DigtialOceanSnapshot {
+  id: string;
+  name: string;
+  regions: string[];
+  created_at: string;
+  resource_id: string;
+  resource_type: string;
+  min_disk_size: number;
+  size_gigabytes: number;
+  tags: string[];
+}
+
+export interface DigtialOceanFirewall {
+  id: string;
+  name: string;
+  status: string;
+  inbound_rules: string;
+  outbound_rules: string;
+  created_at: string;
+  droplet_ids: string[];
+  tags: string[];
+  pending_changes: string[];
 }

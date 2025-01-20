@@ -12,12 +12,12 @@ import {
 const { DIGITAL_OCEAN_ACCESS_TOKEN }: DigitalOceanCredentials = process.env;
 
 const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
-const apiUrl = "https://api.digitalocean.com/v2/droplets";
+const apiUrl = "https://api.digitalocean.com/v2";
 
 export async function listDropletsByAccount(): Promise<DropletsResponse> {
   try {
     // Fetch the list of all droplets
-    const response = await fetch(apiUrl, {
+    const response = await fetch(`${apiUrl}/droplets`, {
       method: "GET",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -57,6 +57,9 @@ export async function checkDropletExistsByName(
     const droplet: DigitalOceanDroplet | undefined =
       accountDroplets.droplets.find((droplet) => droplet.name === dropletName);
 
+    const ipAddress = droplet?.networks.v4.find(
+      (net) => net.type === "public"
+    ).ip_address;
     const successMsg = `Droplet with the name "${dropletName}" exists. It has ID ${droplet?.id}.`;
     console.log({ status: 200, response: successMsg });
 
