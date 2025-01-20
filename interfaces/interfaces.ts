@@ -1,15 +1,9 @@
 export interface CLIArguments {
-  nameId: string;
+  dropletName?: string;
+  dropletId?: string;
+  create?: boolean;
+  list?: boolean;
   burn?: boolean;
-}
-
-export interface B2Credentials {
-  BACKBLAZE_ACCESS_KEY_ID: string;
-  BACKBLAZE_SECRET_ACCESS_KEY: string;
-  BACKBLAZE_REGION: string;
-  BACKBLAZE_BUCKET_NAME: string;
-  BACKBLAZE_DESTINATION_PATH: string;
-  BACKBLAZE_CDN_URL?: string;
 }
 
 export interface DigitalOceanCredentials {
