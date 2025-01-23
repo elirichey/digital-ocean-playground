@@ -7,7 +7,11 @@ import {
   checkDropletExistsByName,
   checkDropletExistsByID,
 } from "./general-droplet";
-import { createDroplet, getFirewallID } from "./create-droplet";
+import {
+  addFirewallToDroplet,
+  createDroplet,
+  getFirewallID,
+} from "./create-droplet";
 import { deleteDroplet } from "./delete-droplet";
 
 import { DigitalOceanDroplet } from "../interfaces/interfaces";
@@ -77,6 +81,53 @@ export async function deleteDropletGenerator(
   }
 
   const resMsg = `Deleted Droplet with ID: ${droplet?.id}`;
+  console.log({ status: 200, response: resMsg });
+
+  return resMsg;
+}
+
+export async function addFirewallToDropletGenerator(
+  dropletName?: string,
+  dropletId?: number
+): Promise<string | undefined> {
+  const droplet = await listDropletGenerator(dropletName, dropletId);
+
+  if (!droplet) {
+    const id = dropletName || dropletId;
+    const noDropletMSg = `Droplet with identifier ${id} does not exist`;
+    console.error({ status: 404, response: noDropletMSg });
+    return undefined;
+  }
+
+  const firewall = await getFirewallID();
+  let firewallObjId = undefined;
+  if (firewall) firewallObjId = firewall?.id;
+
+  if (!droplet?.id || !firewallObjId) {
+    const missingDropletCredsMsg = `Missing Droplet ID`;
+    const missingFirewallCredsMsg = `Missing Firewall ID`;
+    const missingBothCredsMsg = `Missing Droplet ID and Firewall ID`;
+
+    if (!droplet?.id) {
+      console.log({ status: 404, response: missingDropletCredsMsg });
+    } else if (!firewallObjId) {
+      console.log({ status: 404, response: missingFirewallCredsMsg });
+    } else if (!droplet?.id && !firewallObjId) {
+      console.log({ status: 404, response: missingBothCredsMsg });
+    }
+
+    return;
+  }
+
+  const res = await addFirewallToDroplet(`${droplet?.id}`, firewallObjId);
+
+  if (!res) {
+    const failedMsg = `Add Firewall Failed for Droplet with ID: ${droplet?.id}`;
+    console.error({ status: 400, response: failedMsg });
+    return failedMsg;
+  }
+
+  const resMsg = `Added Firewall to Droplet with ID: ${droplet?.id}`;
   console.log({ status: 200, response: resMsg });
 
   return resMsg;

@@ -81,6 +81,34 @@ export async function getSnapshotID(): Promise<
   return snapshot;
 }
 
+// ******************** MONITORING ******************** //
+
+async function checkDropletStatusOnInit(
+  dropletId: string,
+  firewallId?: string
+) {
+  const checkMsThreshold = 5 * 1000; // 5 seconds
+  while (true) {
+    const response = await fetch(`${apiUrl}/droplets/${dropletId}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiToken}` },
+    });
+    const data = await response.json();
+
+    if (data.droplet.status === "active") {
+      const completeMsg = `Droplet ${dropletId} is active and ready`;
+      console.log({ status: 200, response: completeMsg });
+
+      if (firewallId) await addFirewallToDroplet(dropletId, firewallId);
+      break;
+    } else {
+      const activeMsg = `Droplet ${dropletId} is still deploying...`;
+      console.log({ status: 102, response: activeMsg });
+      await new Promise((resolve) => setTimeout(resolve, checkMsThreshold));
+    }
+  }
+}
+
 // ******************** FIREWALLS ******************** //
 
 export async function getFirewalls() {
@@ -143,8 +171,9 @@ export async function addFirewallToDroplet(
   dropletId: string,
   firewallId: string
 ): Promise<any | undefined> {
-  const payload = {
-    droplet_ids: [dropletId],
+  const addDropletId = Number(dropletId);
+  const payload: { droplet_ids: number[] } = {
+    droplet_ids: [addDropletId],
   };
 
   const startFirewallMsg = `Trying to add Firewall ${firewallId} to droplet ${dropletId}`;
@@ -170,7 +199,7 @@ export async function addFirewallToDroplet(
     return data;
   } catch (error: any) {
     const catchMsg = `Catch Error assigning firewall: ${error?.message}`;
-    console.error({ status: 400, response: catchMsg, error });
+    console.error({ status: 400, response: catchMsg });
     return undefined;
   }
 }
@@ -189,8 +218,6 @@ export async function createDroplet(
   let firewallObjId = undefined;
   if (firewall) firewallObjId = firewall?.id;
 
-  console.log({ firewallObjId });
-
   const dropletConfig = {
     name: dropletName, // Name of your droplet
     region: "nyc1", // Choose a region (e.g., 'nyc1', 'sfo3', etc.)
@@ -202,6 +229,7 @@ export async function createDroplet(
     user_data: null, // User data script (optional)
     private_networking: null, // Enable private networking (optional)
     volumes: null, // Attach volumes (optional)
+    monitoring: true, // Add feedback for when the droplet has been created completely
   };
 
   try {
@@ -225,14 +253,8 @@ export async function createDroplet(
     const createdMsg = `Completed Creating Droplet: ${dropletName} (${droplet?.id})`;
     console.log({ status: 200, response: createdMsg });
 
-    // if (firewallObjId) {
-    //   const firewallMinutes = 1.5 * 60 * 1000;
-
-    //   return setTimeout(async () => {
-    //     await addFirewallToDroplet(droplet?.id, firewallObjId);
-    //     return droplet;
-    //   }, firewallMinutes);
-    // }
+    // Wait for firewall to be deployed so firewall can be attached
+    checkDropletStatusOnInit(droplet?.id, firewallId);
 
     return droplet;
   } catch (error: any) {

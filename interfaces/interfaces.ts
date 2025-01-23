@@ -4,6 +4,7 @@ export interface CLIArguments {
   create?: boolean;
   list?: boolean;
   burn?: boolean;
+  firewall?: boolean;
 }
 
 export interface DigitalOceanCredentials {

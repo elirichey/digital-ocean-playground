@@ -10,6 +10,7 @@ import {
   listDropletGenerator,
   createDropletGenerator,
   deleteDropletGenerator,
+  addFirewallToDropletGenerator,
 } from "./src/generator";
 
 const { DIGITAL_OCEAN_ACCESS_TOKEN }: DigitalOceanCredentials = process.env;
@@ -21,17 +22,19 @@ async function run() {
   const createMessage = "Will create the droplet if it does not exist";
   const listMessage = "Will return droplet info if the droplet exists";
   const burnMessage = "Will delete the droplet after a minute";
+  const firewallMessage = "Will add a firewall to the specified droplet";
 
   program
     .option("-n, --dropletName <type>", dropletNameMessage)
     .option("-i, --dropletId <type>", dropletIdMessage)
     .option("-c, --create", createMessage)
     .option("-l, --list", listMessage)
-    .option("-b, --burn", burnMessage);
+    .option("-b, --burn", burnMessage)
+    .option("-f, --firewall", firewallMessage);
 
   program.parse(process.argv);
   const options: CLIArguments = program.opts();
-  const { dropletName, dropletId, create, list, burn } = options;
+  const { dropletName, dropletId, create, list, burn, firewall } = options;
 
   // Make sure setup is correct
 
@@ -50,11 +53,16 @@ async function run() {
   const createTypeIsUndefined = typeof create === "undefined";
   const listTypeIsUndefined = typeof list === "undefined";
   const burnTypeIsUndefined = typeof burn === "undefined";
+  const firewallTypeIsUndefined = typeof firewall === "undefined";
+
   const noType =
-    createTypeIsUndefined && listTypeIsUndefined && burnTypeIsUndefined;
+    createTypeIsUndefined &&
+    listTypeIsUndefined &&
+    burnTypeIsUndefined &&
+    firewallTypeIsUndefined;
 
   if (noType) {
-    const noTypeMsg = `Command is missing an action flag: create, list, burn`;
+    const noTypeMsg = `Command is missing an action flag: create, list, burn, firewall`;
     console.error({ status: 400, response: noTypeMsg });
     return;
   }
@@ -85,6 +93,16 @@ async function run() {
     console.log({ status: 100, response: startMsg });
     const numberId = dropletId ? parseInt(dropletId) : undefined;
     const res = await deleteDropletGenerator(dropletName, numberId);
+    return res;
+  }
+
+  // Add Firewall to Droplet
+
+  if ((dropletName || dropletId) && firewall) {
+    const startMsg = `Add Firewall to Droplet Generator: ${dropletName}`;
+    console.log({ status: 100, response: startMsg });
+    const numberId = dropletId ? parseInt(dropletId) : undefined;
+    const res = await addFirewallToDropletGenerator(dropletName, numberId);
     return res;
   }
 }

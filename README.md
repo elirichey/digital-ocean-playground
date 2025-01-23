@@ -8,6 +8,7 @@ CLI tool for working with Digital Ocean Droplets
   - Create from Snapshot
   - Add Firewall
 - Delete Droplet
+- Add Firewall to Droplet
 
 <br>
 <br>
@@ -44,6 +45,11 @@ CLI tool for working with Digital Ocean Droplets
 
 - Purpose: Shut off the Droplet after 1 minute
 - Flag: `-b` or `--burn`
+
+**Firewall**
+
+- Purpose: Add firewall to Droplet
+- Flag: `-f` or `--firewall`
 
 <br>
 <br>
