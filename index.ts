@@ -7,6 +7,7 @@ import { program } from "commander";
 
 import { CLIArguments, DigitalOceanCredentials } from "./interfaces/interfaces";
 import {
+  listAccountDropletsGenerator,
   listDropletGenerator,
   createDropletGenerator,
   deleteDropletGenerator,
@@ -44,7 +45,7 @@ async function run() {
     return undefined;
   }
 
-  if (!dropletName && !dropletId) {
+  if (!dropletName && !dropletId && !list) {
     const noIdentifierMsg = `Command is missing the name or ID of a droplet`;
     console.error({ status: 400, response: noIdentifierMsg });
     return;
@@ -66,6 +67,17 @@ async function run() {
     console.error({ status: 400, response: noTypeMsg });
     return;
   }
+
+  // Get Account Droplets...
+
+  if (!dropletName && !dropletId && list) {
+    const startMsg = `List Account Droplets Generator`;
+    console.log({ status: 100, response: startMsg });
+    const res = await listAccountDropletsGenerator();
+    return res;
+  }
+
+  //
 
   // Get Droplet Contents...
 

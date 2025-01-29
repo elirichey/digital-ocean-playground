@@ -17,7 +17,7 @@ CLI tool for working with Digital Ocean Droplets
 
 ### _Note_
 
-- _Bucket Name or Bucket ID are required for all requests!!!_
+- Bucket Name or Bucket ID are required for all requests **_except_** Listing Account Buckets!!!
 
 <br>
 
@@ -35,6 +35,7 @@ CLI tool for working with Digital Ocean Droplets
 
 - Purpose: Create the bucket if it does not exist
 - Flag: `-c` or `--create`
+- Note: if there is a firewall in .env file, it will automatically add firewall rules to newly created Droplet
 
 **List**
 

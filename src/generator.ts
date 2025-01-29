@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import {
+  listDropletsByAccount,
   checkDropletExistsByName,
   checkDropletExistsByID,
 } from "./general-droplet";
@@ -15,6 +16,38 @@ import {
 import { deleteDroplet } from "./delete-droplet";
 
 import { DigitalOceanDroplet } from "../interfaces/interfaces";
+
+export async function listAccountDropletsGenerator(): Promise<any | undefined> {
+  const res = await listDropletsByAccount();
+
+  const numberOfDroplets: number = res?.droplets?.length;
+  const hasDroplets = numberOfDroplets > 0;
+
+  if (!hasDroplets) {
+    const failedMsg = `Account has no Droplets`;
+    console.error({ status: 400, response: failedMsg });
+    return failedMsg;
+  }
+
+  const response: {
+    droplets: DigitalOceanDroplet[];
+    numberOfDroplets: number;
+  } = {
+    droplets: res.droplets,
+    numberOfDroplets,
+  };
+
+  const msgDroplets = response.droplets.map((drop: DigitalOceanDroplet) => {
+    const { id, name, status } = drop;
+    return { id, name, status };
+  });
+
+  const msgDropletsString = JSON.stringify(msgDroplets);
+  const resMsg = `Account has ${numberOfDroplets} Droplets: ${msgDropletsString}`;
+  console.log({ status: 200, response: resMsg });
+
+  return response;
+}
 
 export async function listDropletGenerator(
   dropletName?: string,
