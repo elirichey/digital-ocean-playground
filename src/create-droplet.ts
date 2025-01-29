@@ -98,8 +98,19 @@ async function checkDropletStatusOnInit(
     if (data.droplet.status === "active") {
       const completeMsg = `Droplet ${dropletId} is active and ready`;
       console.log({ status: 200, response: completeMsg });
-
-      if (firewallId) await addFirewallToDroplet(dropletId, firewallId);
+      
+      if (firewallId) {
+        const firewall = await getFirewallID();
+        if (!firewall) {
+          throw new Error(`Could not find firewall with name: ${firewallId}`);
+        }
+        
+        const firewallResult = await addFirewallToDroplet(dropletId, firewall.id);
+        if (!firewallResult) {
+          throw new Error(`Failed to assign firewall ${firewall.id} to droplet ${dropletId}`);
+        }
+      }
+      
       break;
     } else {
       const activeMsg = `Droplet ${dropletId} is still deploying...`;
@@ -189,12 +200,32 @@ export async function addFirewallToDroplet(
       body: JSON.stringify(payload),
     });
 
+    // If response is empty, it's successful a status of 204 will be returned
+
+    if (response.status === 204) {
+      const successMsg = `Successfully added Firewall ${firewallId} to droplet ${dropletId}`;
+      console.log({ status: 200, response: successMsg });
+      return successMsg;
+    }
+
     if (!response.ok) {
       const notOkMsg = `Error assigning firewall ${firewallId} to droplet ${dropletId}: ${response.statusText}`;
+      console.error({ 
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
       throw new Error(notOkMsg);
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    console.log('Raw response:', responseText);
+    
+    if (!responseText) {
+      throw new Error('Empty response received from server');
+    }
+
+    const data = JSON.parse(responseText);
     console.log({ addFirewallResponse: data });
     return data;
   } catch (error: any) {
@@ -206,10 +237,9 @@ export async function addFirewallToDroplet(
 
 // ******************** MAIN ******************** //
 
-// DigitalOceanDroplet
 export async function createDroplet(
   dropletName: string
-): Promise<any | undefined> {
+): Promise<DigitalOceanDroplet | undefined> {
   const snapshot = await getSnapshotID();
   let snapshotObjId = undefined;
   if (snapshot) snapshotObjId = snapshot?.id;
