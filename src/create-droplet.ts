@@ -98,19 +98,23 @@ async function checkDropletStatusOnInit(
     if (data.droplet.status === "active") {
       const completeMsg = `Droplet ${dropletId} is active and ready`;
       console.log({ status: 200, response: completeMsg });
-      
+
       if (firewallId) {
         const firewall = await getFirewallID();
         if (!firewall) {
           throw new Error(`Could not find firewall with name: ${firewallId}`);
         }
-        
-        const firewallResult = await addFirewallToDroplet(dropletId, firewall.id);
+
+        const firewallResult = await addFirewallToDroplet(
+          dropletId,
+          firewall.id
+        );
         if (!firewallResult) {
-          throw new Error(`Failed to assign firewall ${firewall.id} to droplet ${dropletId}`);
+          const failedMsg = `Failed to assign firewall ${firewall.id} to droplet ${dropletId}`;
+          throw new Error(failedMsg);
         }
       }
-      
+
       break;
     } else {
       const activeMsg = `Droplet ${dropletId} is still deploying...`;
@@ -210,19 +214,13 @@ export async function addFirewallToDroplet(
 
     if (!response.ok) {
       const notOkMsg = `Error assigning firewall ${firewallId} to droplet ${dropletId}: ${response.statusText}`;
-      console.error({ 
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
+      console.error({ status: response.status, statusText: notOkMsg });
       throw new Error(notOkMsg);
     }
 
     const responseText = await response.text();
-    console.log('Raw response:', responseText);
-    
     if (!responseText) {
-      throw new Error('Empty response received from server');
+      throw new Error("Empty response received from server");
     }
 
     const data = JSON.parse(responseText);
