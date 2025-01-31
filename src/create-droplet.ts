@@ -113,7 +113,15 @@ async function checkDropletStatusOnInit(
           const failedMsg = `Failed to assign firewall ${firewall.id} to droplet ${dropletId}`;
           throw new Error(failedMsg);
         }
+
+        const networkAccess = await waitForNetworkAccess(dropletId);
+        if (!networkAccess) {
+          throw new Error(`Droplet ${dropletId} is not responding on port 80`);
+        }
       }
+
+      const ip = await getDropletIP(dropletId);
+      if (ip) console.log({ status: 200, response: `Droplet IP: ${ip}` });
 
       break;
     } else {
@@ -231,6 +239,80 @@ export async function addFirewallToDroplet(
     console.error({ status: 400, response: catchMsg });
     return undefined;
   }
+}
+
+// ******************** DROPLET IP ******************** //
+
+export async function getDropletIP(
+  dropletId: string
+): Promise<string | undefined> {
+  try {
+    const response = await fetch(`${apiUrl}/droplets/${dropletId}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiToken}` },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get droplet info: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const networks = data.droplet.networks.v4;
+    const publicIP = networks.find((network: any) => network.type === "public");
+
+    if (!publicIP) {
+      throw new Error("No public IP address found for droplet");
+    }
+
+    return publicIP.ip_address;
+  } catch (error: any) {
+    const catchError = `Error getting droplet IP: ${error?.message}`;
+    console.error({ status: error?.status || 400, response: catchError });
+    return undefined;
+  }
+}
+
+export async function waitForNetworkAccess(
+  dropletId: string,
+  port: number = 80,
+  maxAttempts: number = 30
+): Promise<boolean> {
+  const ip = await getDropletIP(dropletId);
+  if (!ip) return false;
+
+  const startMsg = `Checking network access for ${ip}:${port}`;
+  console.log({ status: 100, response: startMsg });
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const fiveSecondTimeout = 1000 * 5;
+    const tenSecondTimeout = 1000 * 10;
+
+    try {
+      const response = await fetch(`http://${ip}:${port}`, {
+        method: "GET",
+        signal: AbortSignal.timeout(fiveSecondTimeout), // Short timeout to quickly detect if service is up
+      });
+
+      if (response.ok) {
+        const successMsg = `Network access confirmed for ${ip}:${port}`;
+        console.log({ status: 200, response: successMsg });
+        return true;
+      }
+    } catch (error: any) {
+      // This will run after each attempt and throw error if network is not yet ready
+      // so we keep this catch empty. No need to throw error when it's still checking
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, tenSecondTimeout));
+
+    const attemptNumber = `${attempt + 1}/${maxAttempts}`;
+    const waitingMsg = `Waiting for network access... Attempt ${attemptNumber}`;
+    console.log({ status: 102, response: waitingMsg });
+  }
+
+  const timeoutErrorMsg = `Timeout waiting for network access on ${ip}:${port}`;
+  console.error({ status: 400, response: timeoutErrorMsg });
+  return false;
 }
 
 // ******************** MAIN ******************** //
