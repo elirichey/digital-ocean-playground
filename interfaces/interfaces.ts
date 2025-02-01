@@ -9,8 +9,8 @@ export interface CLIArguments {
 
 export interface DigitalOceanCredentials {
   DIGITAL_OCEAN_ACCESS_TOKEN: string;
-  SNAPSHOT_ID: string;
-  FIREWALL_ID: string;
+  DIGITAL_OCEAN_SNAPSHOT_ID: string;
+  DIGITAL_OCEAN_FIREWALL_ID: string;
 }
 
 export interface Droplet {

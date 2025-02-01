@@ -12,14 +12,14 @@ import {
 
 const {
   DIGITAL_OCEAN_ACCESS_TOKEN,
-  SNAPSHOT_ID,
-  FIREWALL_ID,
+  DIGITAL_OCEAN_SNAPSHOT_ID,
+  DIGITAL_OCEAN_FIREWALL_ID,
 }: DigitalOceanCredentials = process.env;
 
 const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
 const apiUrl = "https://api.digitalocean.com/v2";
-const snapshotId = SNAPSHOT_ID;
-const firewallId = FIREWALL_ID;
+const snapshotId = DIGITAL_OCEAN_SNAPSHOT_ID;
+const firewallId = DIGITAL_OCEAN_FIREWALL_ID;
 
 // ******************** SNAPSHOTS ******************** //
 

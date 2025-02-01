@@ -61,7 +61,7 @@ export async function checkDropletExistsByName(
       (net) => net.type === "public"
     ).ip_address;
     const successMsg = `Droplet with the name "${dropletName}" exists. It has ID ${droplet?.id}.`;
-    console.log({ status: 200, response: successMsg });
+    console.log({ status: 200, response: successMsg, droplet });
 
     return droplet || undefined;
   } else {

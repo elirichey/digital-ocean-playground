@@ -66,6 +66,6 @@ CLI tool for working with Digital Ocean Droplets
 
 ```bash
 DIGITAL_OCEAN_ACCESS_TOKEN=""
-SNAPSHOT_ID=""
-FIREWALL_ID=""
+DIGITAL_OCEAN_SNAPSHOT_ID=""
+DIGITAL_OCEAN_FIREWALL_ID=""
 ```
