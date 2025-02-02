@@ -92,6 +92,7 @@ async function checkDropletStatusOnInit(
   dropletId: number,
   firewallId?: string
 ): Promise<string | undefined> {
+  let showDeployingTimeout = true;
   const checkMsThreshold = 5 * 1000; // 5 seconds
   while (true) {
     const response = await fetch(`${apiUrl}/droplets/${dropletId}`, {
@@ -139,8 +140,8 @@ async function checkDropletStatusOnInit(
 
       break;
     } else {
-      const showDeployingTimeout = false;
       if (showDeployingTimeout) {
+        showDeployingTimeout = false;
         const activeMsg = `Droplet ${dropletId} is still deploying...`;
         console.log({ status: 102, response: activeMsg });
         await new Promise((resolve) => setTimeout(resolve, checkMsThreshold));
@@ -219,7 +220,7 @@ export async function addFirewallToDroplet(
   };
 
   const startFirewallMsg = `Trying to add Firewall ${firewallId} to droplet ${dropletId}`;
-  console.log({ status: 100, response: startFirewallMsg, payload });
+  console.log({ status: 100, response: startFirewallMsg });
 
   try {
     const response = await fetch(`${apiUrl}/firewalls/${firewallId}/droplets`, {
@@ -298,7 +299,7 @@ export async function waitForNetworkAccess(
   const ip = await getDropletIP(dropletId);
   if (!ip) return false;
 
-  const startMsg = `Checking network access for ${ip}:${port}`;
+  const startMsg = `Checking network access for ${ip}:${port}...`;
   console.log({ status: 100, response: startMsg });
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {

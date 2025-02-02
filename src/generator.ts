@@ -118,12 +118,6 @@ export async function deleteDropletGenerator(
   const resMsg = `Deleted Droplet with ID: ${droplet?.id}`;
   console.log({ status: 200, response: resMsg });
 
-  const endTime = new Date().getTime();
-  const successMsg = `Droplet with name/id ${
-    dropletName || dropletId
-  } has been deleted: TS_END ${endTime}`;
-  console.log({ status: 201, response: successMsg });
-
   return resMsg;
 }
 

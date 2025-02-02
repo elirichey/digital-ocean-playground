@@ -30,8 +30,9 @@ export async function deleteDroplet(
       throw new Error(notOkMsg);
     }
 
-    const successMsg = `Droplet with ID ${dropletId} has been deleted successfully.`;
-    console.log({ status: 200, response: successMsg });
+    const endTime = new Date().getTime();
+    const successMsg = `Droplet with ID ${dropletId} has been deleted successfully`;
+    console.log({ status: 200, response: successMsg + `: TS_END ${endTime}` });
 
     return successMsg;
   } catch (error: DigitalOceanCatchError | any) {
