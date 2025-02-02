@@ -345,7 +345,7 @@ export async function createDroplet(
     private_networking: null, // Enable private networking (optional)
     volumes: null, // Attach volumes (optional)
     monitoring: true, // Add feedback for when the droplet has been created completely
-    tags: [], // 'Processing'
+    tags: [],
   };
 
   try {
@@ -357,8 +357,6 @@ export async function createDroplet(
       },
       body: JSON.stringify(dropletConfig),
     });
-
-    console.log({ response });
 
     if (!response.ok) {
       const notOkMsg = `Error creating droplet: ${response.statusText}`;
