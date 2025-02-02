@@ -15,9 +15,15 @@ import {
 } from "./create-droplet";
 import { deleteDroplet } from "./delete-droplet";
 
-import { DigitalOceanDroplet } from "../interfaces/interfaces";
+import {
+  DigitalOceanDroplet,
+  DropletLightResponse,
+  ListDropletsResponse,
+} from "../interfaces/interfaces";
 
-export async function listAccountDropletsGenerator(): Promise<any | undefined> {
+export async function listAccountDropletsGenerator(): Promise<
+  ListDropletsResponse | string
+> {
   const res = await listDropletsByAccount();
 
   const numberOfDroplets: number = res?.droplets?.length;
@@ -29,18 +35,17 @@ export async function listAccountDropletsGenerator(): Promise<any | undefined> {
     return failedMsg;
   }
 
-  const response: {
-    droplets: DigitalOceanDroplet[];
-    numberOfDroplets: number;
-  } = {
+  const response: ListDropletsResponse = {
     droplets: res.droplets,
     numberOfDroplets,
   };
 
-  const msgDroplets = response.droplets.map((drop: DigitalOceanDroplet) => {
-    const { id, name, status } = drop;
-    return { id, name, status };
-  });
+  const msgDroplets = response.droplets.map(
+    (drop: DigitalOceanDroplet): DropletLightResponse => {
+      const { id, name, status } = drop;
+      return { id, name, status };
+    }
+  );
 
   const msgDropletsString = JSON.stringify(msgDroplets);
   const resMsg = `Account has ${numberOfDroplets} Droplets: ${msgDropletsString}`;
@@ -72,24 +77,21 @@ export async function createDropletGenerator(
   dropletName: string,
   create?: boolean,
   burn?: boolean
-): Promise<any> {
-  // Check if droplet with dropletName name exists. If so, return the url
+): Promise<DigitalOceanDroplet | string> {
   let droplet = await checkDropletExistsByName(dropletName);
 
-  // If not, create a new droplet
   if (!droplet && create) {
     droplet = await createDroplet(dropletName);
-
-    // If burn flag is set, delete the droplet after a minute and a half
-    const minutes = 1.5 * 60 * 1000;
-    if (droplet && burn) {
-      setTimeout(async () => {
-        await deleteDroplet(droplet?.id || 0);
-      }, minutes);
-    } else {
-      return droplet;
-    }
   }
+
+  if (!droplet) {
+    const failureMsg = `Droplet ${dropletName} does not exist`;
+    return failureMsg;
+  }
+
+  const successMsg = `Got droplet with name: ${dropletName}`;
+  console.log({ status: 200, response: successMsg });
+  return droplet;
 }
 
 export async function deleteDropletGenerator(

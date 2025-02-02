@@ -3,7 +3,10 @@ declare var process: any;
 import dotenv from "dotenv";
 dotenv.config();
 
-import { DigitalOceanCredentials } from "../interfaces/interfaces";
+import {
+  DigitalOceanCatchError,
+  DigitalOceanCredentials,
+} from "../interfaces/interfaces";
 
 const { DIGITAL_OCEAN_ACCESS_TOKEN }: DigitalOceanCredentials = process.env;
 
@@ -12,7 +15,7 @@ const apiUrl = "https://api.digitalocean.com/v2";
 
 export async function deleteDroplet(
   dropletId: number
-): Promise<undefined | string> {
+): Promise<string | undefined> {
   const startMsg = `Deleting droplet with ID: ${dropletId}`;
   console.log({ status: 100, response: startMsg });
 
@@ -31,8 +34,8 @@ export async function deleteDroplet(
     console.log({ status: 200, response: successMsg });
 
     return successMsg;
-  } catch (error: any) {
-    const catchMsg = `Error deleting droplet: ${error?.message}`;
+  } catch (error: DigitalOceanCatchError | any) {
+    const catchMsg = `Catch error deleting droplet: ${error?.message}`;
     console.error({ status: 400, response: catchMsg });
     return undefined;
   }

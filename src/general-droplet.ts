@@ -4,8 +4,10 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import {
+  DigitalOceanCatchError,
   DigitalOceanCredentials,
   DigitalOceanDroplet,
+  DropletNetwork,
   DropletsResponse,
 } from "../interfaces/interfaces";
 
@@ -16,7 +18,6 @@ const apiUrl = "https://api.digitalocean.com/v2";
 
 export async function listDropletsByAccount(): Promise<DropletsResponse> {
   try {
-    // Fetch the list of all droplets
     const response = await fetch(`${apiUrl}/droplets`, {
       method: "GET",
       headers: { Authorization: `Bearer ${apiToken}` },
@@ -31,8 +32,13 @@ export async function listDropletsByAccount(): Promise<DropletsResponse> {
     const resMsg = `Got Droplets for Account`;
     console.log({ status: 200, response: resMsg });
     return data;
-  } catch (error: any) {
-    const catchMsg = `Error checking account droplets: ${error?.message}`;
+  } catch (error: DigitalOceanCatchError | any) {
+    const catchMsg = `Catch error checking account droplets: ${error?.message}`;
+    console.log({
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+    });
     console.error({ status: 400, response: catchMsg });
     return { droplets: [] };
   }
@@ -57,13 +63,19 @@ export async function checkDropletExistsByName(
     const droplet: DigitalOceanDroplet | undefined =
       accountDroplets.droplets.find((droplet) => droplet.name === dropletName);
 
-    const ipAddress = droplet?.networks.v4.find(
-      (net) => net.type === "public"
-    ).ip_address;
-    const successMsg = `Droplet with the name "${dropletName}" exists. It has ID ${droplet?.id}.`;
-    console.log({ status: 200, response: successMsg, droplet });
+    if (!droplet) return undefined;
 
-    return droplet || undefined;
+    const dropletNetwork = droplet?.networks.v4.find(
+      (net: DropletNetwork) => net?.type === "public"
+    );
+
+    const ipAddress = dropletNetwork?.ip_address;
+    const successMsg = `Droplet with the name "${dropletName}" exists. It has ID ${
+      droplet?.id
+    }${ipAddress ? `and an IP address of ${ipAddress}.` : "."}`;
+
+    console.log({ status: 200, response: successMsg });
+    return droplet;
   } else {
     const noExistMsg = `Droplet with the name "${dropletName}" does not exist.`;
     console.log({ status: 404, response: noExistMsg });

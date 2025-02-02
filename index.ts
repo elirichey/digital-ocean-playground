@@ -31,11 +31,20 @@ async function run() {
     .option("-c, --create", createMessage)
     .option("-l, --list", listMessage)
     .option("-b, --burn", burnMessage)
+    .option("-d, --delete", burnMessage)
     .option("-f, --firewall", firewallMessage);
 
   program.parse(process.argv);
   const options: CLIArguments = program.opts();
-  const { dropletName, dropletId, create, list, burn, firewall } = options;
+  const {
+    dropletName,
+    dropletId,
+    create,
+    list,
+    burn,
+    delete: deleteDroplet,
+    firewall,
+  } = options;
 
   // Make sure setup is correct
 
@@ -53,17 +62,18 @@ async function run() {
 
   const createTypeIsUndefined = typeof create === "undefined";
   const listTypeIsUndefined = typeof list === "undefined";
-  const burnTypeIsUndefined = typeof burn === "undefined";
+  const deleteTypeIsUndefined =
+    typeof burn === "undefined" && typeof deleteDroplet === "undefined";
   const firewallTypeIsUndefined = typeof firewall === "undefined";
 
   const noType =
     createTypeIsUndefined &&
     listTypeIsUndefined &&
-    burnTypeIsUndefined &&
+    deleteTypeIsUndefined &&
     firewallTypeIsUndefined;
 
   if (noType) {
-    const noTypeMsg = `Command is missing an action flag: create, list, burn, firewall`;
+    const noTypeMsg = `Command is missing an action flag: create, list, burn, delete, firewall`;
     console.error({ status: 400, response: noTypeMsg });
     return;
   }
@@ -76,8 +86,6 @@ async function run() {
     const res = await listAccountDropletsGenerator();
     return res;
   }
-
-  //
 
   // Get Droplet Contents...
 
@@ -100,7 +108,7 @@ async function run() {
 
   // Delete a Droplet...
 
-  if ((dropletName || dropletId) && !create && burn) {
+  if ((dropletName || dropletId) && !create && (burn || deleteDroplet)) {
     const startMsg = `Delete Droplet Generator: ${dropletName}`;
     console.log({ status: 100, response: startMsg });
     const numberId = dropletId ? parseInt(dropletId) : undefined;

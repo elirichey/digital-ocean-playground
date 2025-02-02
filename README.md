@@ -17,35 +17,38 @@ CLI tool for working with Digital Ocean Droplets
 
 ### _Note_
 
-- Bucket Name or Bucket ID are required for all requests **_except_** Listing Account Buckets!!!
+- Droplet Name or Droplet ID are required for all requests **_except_** Listing Account Droplets!!!
 
 <br>
 
-**Bucket Name**
+**Droplet Name**
 
 - Purpose: Name of the droplet
-- Flag: `-n` or `--bucketName`
+- Flag: `-n` or `--dropletName`
 
-**Bucket ID**
+**Droplet ID**
 
-- Purpose: Get info on an existing bucket
-- Flag: `-i` or `--bucketId`
+- Purpose: Get info on an existing droplet
+- Flag: `-i` or `--dropletId`
 
 **Create**
 
-- Purpose: Create the bucket if it does not exist
+- Purpose: Create the droplet if it does not exist
 - Flag: `-c` or `--create`
-- Note: if there is a firewall in .env file, it will automatically add firewall rules to newly created Droplet
+- _Note:_ if there is a firewall in .env file, it will automatically add firewall rules to newly created Droplet
 
 **List**
 
-- Purpose: List the bucket data if it exists
+- Purpose: List the droplet data if it exists
 - Flag: `-l` or `--list`
+- _Note:_ can be used for a single droplet, or used to get all droplets on an account
 
-**Burn**
+**Burn / Delete**
 
-- Purpose: Shut off the Droplet after 1 minute
-- Flag: `-b` or `--burn`
+- Purpose: Delete the droplet
+- Flag:
+  - `-b` or `--burn`
+  - `-d` or `--delete`
 
 **Firewall**
 
@@ -57,7 +60,7 @@ CLI tool for working with Digital Ocean Droplets
 
 ## Example
 
-`npx tsx index.ts -n "my-new-droplet" -c -b`
+`npx tsx index.ts -n "my-new-droplet" -c`
 
 <br>
 <br>

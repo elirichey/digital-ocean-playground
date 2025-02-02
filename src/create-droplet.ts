@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import {
+  DigitalOceanCatchError,
   DigitalOceanCredentials,
   DigitalOceanDroplet,
   DigtialOceanFirewall,
@@ -45,8 +46,8 @@ export async function getAvailableSnapshots(): Promise<
     const data = await response.json();
     const snapshots: DigtialOceanSnapshot[] = data?.snapshots;
     return snapshots;
-  } catch (error: any) {
-    const catchMsg = `Error getting snapshots info: ${error?.message}`;
+  } catch (error: DigitalOceanCatchError | any) {
+    const catchMsg = `Catch error getting snapshots info: ${error?.message}`;
     console.error({ status: 400, response: catchMsg });
     return undefined;
   }
@@ -88,7 +89,7 @@ export async function getSnapshotID(): Promise<
 async function checkDropletStatusOnInit(
   dropletId: string,
   firewallId?: string
-) {
+): Promise<string | undefined> {
   const checkMsThreshold = 5 * 1000; // 5 seconds
   while (true) {
     const response = await fetch(`${apiUrl}/droplets/${dropletId}`, {
@@ -126,6 +127,7 @@ async function checkDropletStatusOnInit(
       if (ip) {
         const successMsg = `Droplet IP is ready: ${ip}`;
         console.log({ status: 200, response: successMsg });
+        return ip;
       }
 
       break;
@@ -139,7 +141,9 @@ async function checkDropletStatusOnInit(
 
 // ******************** FIREWALLS ******************** //
 
-export async function getFirewalls() {
+export async function getFirewalls(): Promise<
+  DigtialOceanFirewall[] | undefined
+> {
   try {
     const response = await fetch(`${apiUrl}/firewalls`, {
       method: "GET",
@@ -157,8 +161,8 @@ export async function getFirewalls() {
     const data = await response.json();
     const firewalls: DigtialOceanFirewall[] = data?.firewalls;
     return firewalls;
-  } catch (error: any) {
-    const catchMsg = `Error getting firewalls info: ${error?.message}`;
+  } catch (error: DigitalOceanCatchError | any) {
+    const catchMsg = `Catch error getting firewalls info: ${error?.message}`;
     console.error({ status: 400, response: catchMsg });
     return undefined;
   }
@@ -198,7 +202,7 @@ export async function getFirewallID(): Promise<
 export async function addFirewallToDroplet(
   dropletId: string,
   firewallId: string
-): Promise<any | undefined> {
+): Promise<string | undefined> {
   const addDropletId = Number(dropletId);
   const payload: { droplet_ids: number[] } = {
     droplet_ids: [addDropletId],
@@ -217,8 +221,7 @@ export async function addFirewallToDroplet(
       body: JSON.stringify(payload),
     });
 
-    // If response is empty, it's successful a status of 204 will be returned
-
+    // If response is empty, then it was it's successful! A status of 204 will be returned
     if (response.status === 204) {
       const successMsg = `Successfully added Firewall ${firewallId} to droplet ${dropletId}`;
       console.log({ status: 200, response: successMsg });
@@ -239,8 +242,8 @@ export async function addFirewallToDroplet(
     const data = JSON.parse(responseText);
     console.log({ addFirewallResponse: data });
     return data;
-  } catch (error: any) {
-    const catchMsg = `Catch Error assigning firewall: ${error?.message}`;
+  } catch (error: DigitalOceanCatchError | any) {
+    const catchMsg = `Catch error assigning firewall: ${error?.message}`;
     console.error({ status: 400, response: catchMsg });
     return undefined;
   }
@@ -270,8 +273,8 @@ export async function getDropletIP(
     }
 
     return publicIP.ip_address;
-  } catch (error: any) {
-    const catchError = `Error getting droplet IP: ${error?.message}`;
+  } catch (error: DigitalOceanCatchError | any) {
+    const catchError = `Catch error getting droplet IP: ${error?.message}`;
     console.error({ status: error?.status || 400, response: catchError });
     return undefined;
   }
@@ -300,7 +303,7 @@ export async function waitForNetworkAccess(
         console.log({ status: 200, response: successMsg });
         return true;
       }
-    } catch (error: any) {
+    } catch (error: DigitalOceanCatchError | any) {
       // This will run after each attempt and throw error if network is not yet ready
       // so we keep this catch empty. No need to throw error when it's still checking
     }
@@ -353,6 +356,8 @@ export async function createDroplet(
       body: JSON.stringify(dropletConfig),
     });
 
+    console.log({ response });
+
     if (!response.ok) {
       const notOkMsg = `Error creating droplet: ${response.statusText}`;
       throw new Error(notOkMsg);
@@ -365,11 +370,12 @@ export async function createDroplet(
     console.log({ status: 200, response: createdMsg });
 
     // Wait for firewall to be deployed so firewall can be attached
+    // No need to await before returning droplet, we can let this run in the background
     checkDropletStatusOnInit(droplet?.id, firewallId);
 
     return droplet;
-  } catch (error: any) {
-    const catchMsg = `Error creating droplet: ${error?.message}`;
+  } catch (error: DigitalOceanCatchError | any) {
+    const catchMsg = `Catch error creating droplet: ${error?.message}`;
     console.error({ status: 400, response: catchMsg });
     return undefined;
   }
