@@ -78,10 +78,13 @@ async function run() {
     return;
   }
 
+  const startTime = new Date().getTime();
+  const startString = `TS_START ${startTime}`;
+
   // Get Account Droplets...
 
   if (!dropletName && !dropletId && list) {
-    const startMsg = `List Account Droplets Generator`;
+    const startMsg = `List Account Droplets Generator: ${startString}`;
     console.log({ status: 100, response: startMsg });
     const res = await listAccountDropletsGenerator();
     return res;
@@ -90,7 +93,9 @@ async function run() {
   // Get Droplet Contents...
 
   if ((dropletName || dropletId) && list) {
-    const startMsg = `List Droplet Generator: ${dropletName || dropletId}`;
+    const startMsg = `List Droplet Generator: ${
+      dropletName || dropletId
+    }: ${startString}`;
     console.log({ status: 100, response: startMsg });
     const numberId = dropletId ? Number(dropletId) : undefined;
     const res = await listDropletGenerator(dropletName, numberId);
@@ -100,16 +105,16 @@ async function run() {
   // Create a new Droplet...
 
   if (dropletName && create) {
-    const startMsg = `Create Droplet Generator: ${dropletName}`;
+    const startMsg = `Create Droplet Generator: ${dropletName}: ${startString}`;
     console.log({ status: 100, response: startMsg });
-    const res = await createDropletGenerator(dropletName, create, burn);
+    const res = await createDropletGenerator(dropletName, create);
     return res;
   }
 
   // Delete a Droplet...
 
   if ((dropletName || dropletId) && !create && (burn || deleteDroplet)) {
-    const startMsg = `Delete Droplet Generator: ${dropletName}`;
+    const startMsg = `Delete Droplet Generator: ${dropletName}: ${startString}`;
     console.log({ status: 100, response: startMsg });
     const numberId = dropletId ? parseInt(dropletId) : undefined;
     const res = await deleteDropletGenerator(dropletName, numberId);
@@ -119,7 +124,7 @@ async function run() {
   // Add Firewall to Droplet
 
   if ((dropletName || dropletId) && firewall) {
-    const startMsg = `Add Firewall to Droplet Generator: ${dropletName}`;
+    const startMsg = `Add Firewall to Droplet Generator: ${dropletName}: ${startString}`;
     console.log({ status: 100, response: startMsg });
     const numberId = dropletId ? parseInt(dropletId) : undefined;
     const res = await addFirewallToDropletGenerator(dropletName, numberId);

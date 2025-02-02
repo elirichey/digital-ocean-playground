@@ -11,6 +11,7 @@ import {
   DigtialOceanSnapshot,
   DropletConfig,
 } from "../interfaces/interfaces";
+import { deleteDroplet } from "./delete-droplet";
 
 const {
   DIGITAL_OCEAN_ACCESS_TOKEN,
@@ -23,7 +24,7 @@ const apiUrl = "https://api.digitalocean.com/v2";
 const snapshotId = DIGITAL_OCEAN_SNAPSHOT_ID;
 const firewallId = DIGITAL_OCEAN_FIREWALL_ID;
 
-const fiveSecondTimeout = 1000 * 5;
+const secondTimeout = 1000;
 
 // ******************** SNAPSHOTS ******************** //
 
@@ -88,7 +89,7 @@ export async function getSnapshotID(): Promise<
 // ******************** MONITORING ******************** //
 
 async function checkDropletStatusOnInit(
-  dropletId: string,
+  dropletId: number,
   firewallId?: string
 ): Promise<string | undefined> {
   const checkMsThreshold = 5 * 1000; // 5 seconds
@@ -106,7 +107,9 @@ async function checkDropletStatusOnInit(
       if (firewallId) {
         const firewall = await getFirewallID();
         if (!firewall) {
-          throw new Error(`Could not find firewall with name: ${firewallId}`);
+          await deleteDroplet(dropletId);
+          const failedMsg = `Could not find firewall with name: ${firewallId}`;
+          throw new Error(failedMsg);
         }
 
         const firewallResult = await addFirewallToDroplet(
@@ -114,13 +117,16 @@ async function checkDropletStatusOnInit(
           firewall.id
         );
         if (!firewallResult) {
+          await deleteDroplet(dropletId);
           const failedMsg = `Failed to assign firewall ${firewall.id} to droplet ${dropletId}`;
           throw new Error(failedMsg);
         }
 
         const networkAccess = await waitForNetworkAccess(dropletId);
         if (!networkAccess) {
-          throw new Error(`Droplet ${dropletId} is not responding on port 80`);
+          await deleteDroplet(dropletId);
+          const failedMsg = `Droplet ${dropletId} is not responding on port 80`;
+          throw new Error(failedMsg);
         }
       }
 
@@ -133,9 +139,12 @@ async function checkDropletStatusOnInit(
 
       break;
     } else {
-      const activeMsg = `Droplet ${dropletId} is still deploying...`;
-      console.log({ status: 102, response: activeMsg });
-      await new Promise((resolve) => setTimeout(resolve, checkMsThreshold));
+      const showDeployingTimeout = false;
+      if (showDeployingTimeout) {
+        const activeMsg = `Droplet ${dropletId} is still deploying...`;
+        console.log({ status: 102, response: activeMsg });
+        await new Promise((resolve) => setTimeout(resolve, checkMsThreshold));
+      }
     }
   }
 }
@@ -201,7 +210,7 @@ export async function getFirewallID(): Promise<
 }
 
 export async function addFirewallToDroplet(
-  dropletId: string,
+  dropletId: number,
   firewallId: string
 ): Promise<string | undefined> {
   const addDropletId = Number(dropletId);
@@ -253,7 +262,7 @@ export async function addFirewallToDroplet(
 // ******************** DROPLET IP ******************** //
 
 export async function getDropletIP(
-  dropletId: string
+  dropletId: number
 ): Promise<string | undefined> {
   try {
     const response = await fetch(`${apiUrl}/droplets/${dropletId}`, {
@@ -282,7 +291,7 @@ export async function getDropletIP(
 }
 
 export async function waitForNetworkAccess(
-  dropletId: string,
+  dropletId: number,
   port: number = 80,
   maxAttempts: number = 30
 ): Promise<boolean> {
@@ -296,7 +305,7 @@ export async function waitForNetworkAccess(
     try {
       const response = await fetch(`http://${ip}:${port}`, {
         method: "GET",
-        signal: AbortSignal.timeout(fiveSecondTimeout), // Short timeout to quickly detect if service is up
+        signal: AbortSignal.timeout(secondTimeout), // Short timeout to quickly detect if service is up
       });
 
       if (response.ok) {
@@ -309,11 +318,14 @@ export async function waitForNetworkAccess(
       // so we keep this catch empty. No need to throw error when it's still checking
     }
 
-    await new Promise((resolve) => setTimeout(resolve, fiveSecondTimeout));
+    await new Promise((resolve) => setTimeout(resolve, secondTimeout));
 
-    const attemptNumber = `${attempt + 1}/${maxAttempts}`;
-    const waitingMsg = `Waiting for network access... Attempt ${attemptNumber}`;
-    console.log({ status: 102, response: waitingMsg });
+    const showAttempts = false;
+    if (showAttempts) {
+      const attemptNumber = `${attempt + 1}/${maxAttempts}`;
+      const waitingMsg = `Waiting for network access... Attempt ${attemptNumber}`;
+      console.log({ status: 102, response: waitingMsg });
+    }
   }
 
   const timeoutErrorMsg = `Timeout waiting for network access on ${ip}:${port}`;
@@ -371,7 +383,9 @@ export async function createDroplet(
 
     // Wait for firewall to be deployed so firewall can be attached
     // No need to await before returning droplet, we can let this run in the background
-    checkDropletStatusOnInit(droplet?.id, firewallId);
+    const ip = await checkDropletStatusOnInit(droplet?.id, firewallId);
+    const successMsg = `Completed setting up droplet with IP: ${ip}`;
+    console.log({ status: 201, response: successMsg });
 
     return droplet;
   } catch (error: DigitalOceanCatchError | any) {

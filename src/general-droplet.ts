@@ -10,6 +10,7 @@ import {
   DropletNetwork,
   DropletsResponse,
 } from "../interfaces/interfaces";
+// import { getDropletIP } from "./create-droplet";
 
 const { DIGITAL_OCEAN_ACCESS_TOKEN }: DigitalOceanCredentials = process.env;
 
@@ -72,7 +73,7 @@ export async function checkDropletExistsByName(
     const ipAddress = dropletNetwork?.ip_address;
     const successMsg = `Droplet with the name "${dropletName}" exists. It has ID ${
       droplet?.id
-    }${ipAddress ? `and an IP address of ${ipAddress}.` : "."}`;
+    }${ipAddress ? ` and an IP address of ${ipAddress}.` : "."}`;
 
     console.log({ status: 200, response: successMsg });
     return droplet;
@@ -104,6 +105,9 @@ export async function checkDropletExistsByID(
 
     const successMsg = `Droplet with the ID "${dropletId}" exists. It's name is ${droplet?.name}.`;
     console.log({ status: 200, response: successMsg });
+
+    // const ip = await getDropletIP(`${dropletId}`);
+    // console.log({ ip });
 
     return droplet || undefined;
   } else {

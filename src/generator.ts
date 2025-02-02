@@ -75,8 +75,7 @@ export async function listDropletGenerator(
 
 export async function createDropletGenerator(
   dropletName: string,
-  create?: boolean,
-  burn?: boolean
+  create?: boolean
 ): Promise<DigitalOceanDroplet | string> {
   let droplet = await checkDropletExistsByName(dropletName);
 
@@ -89,8 +88,9 @@ export async function createDropletGenerator(
     return failureMsg;
   }
 
-  const successMsg = `Got droplet with name: ${dropletName}`;
-  console.log({ status: 200, response: successMsg });
+  const endTime = new Date().getTime();
+  const successMsg = `Droplet with name ${dropletName} has been created: TS_END ${endTime}`;
+  console.log({ status: 201, response: successMsg });
   return droplet;
 }
 
@@ -117,6 +117,12 @@ export async function deleteDropletGenerator(
 
   const resMsg = `Deleted Droplet with ID: ${droplet?.id}`;
   console.log({ status: 200, response: resMsg });
+
+  const endTime = new Date().getTime();
+  const successMsg = `Droplet with name/id ${
+    dropletName || dropletId
+  } has been deleted: TS_END ${endTime}`;
+  console.log({ status: 201, response: successMsg });
 
   return resMsg;
 }
@@ -154,7 +160,7 @@ export async function addFirewallToDropletGenerator(
     return;
   }
 
-  const res = await addFirewallToDroplet(`${droplet?.id}`, firewallObjId);
+  const res = await addFirewallToDroplet(droplet?.id, firewallObjId);
 
   if (!res) {
     const failedMsg = `Add Firewall Failed for Droplet with ID: ${droplet?.id}`;
@@ -162,7 +168,8 @@ export async function addFirewallToDropletGenerator(
     return failedMsg;
   }
 
-  const resMsg = `Added Firewall to Droplet with ID: ${droplet?.id}`;
+  const endTime = new Date().getTime();
+  const resMsg = `Added Firewall to Droplet with ID: ${droplet?.id}: TS_END ${endTime}`;
   console.log({ status: 200, response: resMsg });
 
   return resMsg;
