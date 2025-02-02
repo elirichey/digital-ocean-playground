@@ -121,7 +121,10 @@ async function checkDropletStatusOnInit(
       }
 
       const ip = await getDropletIP(dropletId);
-      if (ip) console.log({ status: 200, response: `Droplet IP: ${ip}` });
+      if (ip) {
+        const successMsg = `Droplet IP is ready: ${ip}`;
+        console.log({ status: 200, response: successMsg });
+      }
 
       break;
     } else {
@@ -314,7 +317,6 @@ export async function waitForNetworkAccess(
   console.error({ status: 400, response: timeoutErrorMsg });
   return false;
 }
-
 // ******************** MAIN ******************** //
 
 export async function createDroplet(
