@@ -9,6 +9,7 @@ import {
   DigitalOceanDroplet,
   DigtialOceanFirewall,
   DigtialOceanSnapshot,
+  DropletConfig,
 } from "../interfaces/interfaces";
 
 const {
@@ -332,7 +333,7 @@ export async function createDroplet(
   let firewallObjId = undefined;
   if (firewall) firewallObjId = firewall?.id;
 
-  const dropletConfig = {
+  const dropletConfig: DropletConfig = {
     name: dropletName, // Name of your droplet
     region: "nyc1", // Choose a region (e.g., 'nyc1', 'sfo3', etc.)
     size: "c-60-intel", // Droplet size (e.g., 'c-60-intel', 's-1vcpu-1gb', 's-2vcpu-2gb', etc.)
@@ -344,6 +345,7 @@ export async function createDroplet(
     private_networking: null, // Enable private networking (optional)
     volumes: null, // Attach volumes (optional)
     monitoring: true, // Add feedback for when the droplet has been created completely
+    tags: [], // 'Processing'
   };
 
   try {

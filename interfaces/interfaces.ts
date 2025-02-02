@@ -52,6 +52,7 @@ export interface DropletConfig {
   user_data: null;
   private_networking: null;
   volumes: null;
+  monitoring?: boolean;
   tags: string[];
 }
 
