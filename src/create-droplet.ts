@@ -21,6 +21,8 @@ const apiUrl = "https://api.digitalocean.com/v2";
 const snapshotId = DIGITAL_OCEAN_SNAPSHOT_ID;
 const firewallId = DIGITAL_OCEAN_FIREWALL_ID;
 
+const fiveSecondTimeout = 1000 * 5;
+
 // ******************** SNAPSHOTS ******************** //
 
 export async function getAvailableSnapshots(): Promise<
@@ -287,9 +289,6 @@ export async function waitForNetworkAccess(
   console.log({ status: 100, response: startMsg });
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const fiveSecondTimeout = 1000 * 5;
-    const tenSecondTimeout = 1000 * 10;
-
     try {
       const response = await fetch(`http://${ip}:${port}`, {
         method: "GET",
@@ -306,7 +305,7 @@ export async function waitForNetworkAccess(
       // so we keep this catch empty. No need to throw error when it's still checking
     }
 
-    await new Promise((resolve) => setTimeout(resolve, tenSecondTimeout));
+    await new Promise((resolve) => setTimeout(resolve, fiveSecondTimeout));
 
     const attemptNumber = `${attempt + 1}/${maxAttempts}`;
     const waitingMsg = `Waiting for network access... Attempt ${attemptNumber}`;
