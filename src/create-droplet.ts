@@ -397,6 +397,8 @@ export async function createDroplet(
       if (resWithSubdomain) {
         const subdomainSuccessMsg = `Droplet ${dropletName} is ready at ${subdomain}.${domain}`;
         console.log({ status: 201, response: subdomainSuccessMsg });
+
+        // Then configure SSL & DNS for server
       }
     }
 
