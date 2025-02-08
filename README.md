@@ -15,7 +15,9 @@ CLI tool for working with Digital Ocean Droplets
 
 ## Arguments
 
-### _Note_
+### Droplet Requests:
+
+##### _Note_
 
 - Droplet Name or Droplet ID are required for all requests **_except_** Listing Account Droplets!!!
 
@@ -55,6 +57,11 @@ CLI tool for working with Digital Ocean Droplets
 - Purpose: Add firewall to Droplet
 - Flag: `-f` or `--firewall`
 
+**Subdomain**
+
+- Purpose: Add Subdomain to droplet and configure SSL
+- Flag: `-s` or `--subdomain`
+
 <br>
 <br>
 
@@ -71,4 +78,5 @@ CLI tool for working with Digital Ocean Droplets
 DIGITAL_OCEAN_ACCESS_TOKEN=""
 DIGITAL_OCEAN_SNAPSHOT_ID=""
 DIGITAL_OCEAN_FIREWALL_ID=""
+DIGITAL_OCEAN_DOMAIN=""
 ```

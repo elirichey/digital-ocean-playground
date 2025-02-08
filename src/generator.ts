@@ -75,12 +75,13 @@ export async function listDropletGenerator(
 
 export async function createDropletGenerator(
   dropletName: string,
-  create?: boolean
+  create?: boolean,
+  subdomain?: string
 ): Promise<DigitalOceanDroplet | string> {
   let droplet = await checkDropletExistsByName(dropletName);
 
   if (!droplet && create) {
-    droplet = await createDroplet(dropletName);
+    droplet = await createDroplet(dropletName, subdomain);
   }
 
   if (!droplet) {
@@ -96,7 +97,8 @@ export async function createDropletGenerator(
 
 export async function deleteDropletGenerator(
   dropletName?: string,
-  dropletId?: number
+  dropletId?: number,
+  subdomain?: string
 ): Promise<string | undefined> {
   const droplet = await listDropletGenerator(dropletName, dropletId);
 
@@ -107,7 +109,7 @@ export async function deleteDropletGenerator(
     return undefined;
   }
 
-  const res = await deleteDroplet(droplet?.id);
+  const res = await deleteDroplet(droplet?.id, subdomain);
 
   if (!res) {
     const failedMsg = `Delete Droplet Failed for ID: ${droplet?.id}`;

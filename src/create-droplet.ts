@@ -12,17 +12,20 @@ import {
   DropletConfig,
 } from "../interfaces/interfaces";
 import { deleteDroplet } from "./delete-droplet";
+import { addSubdomain } from "./subdomain";
 
 const {
   DIGITAL_OCEAN_ACCESS_TOKEN,
   DIGITAL_OCEAN_SNAPSHOT_ID,
   DIGITAL_OCEAN_FIREWALL_ID,
+  DIGITAL_OCEAN_DOMAIN,
 }: DigitalOceanCredentials = process.env;
 
 const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
 const apiUrl = "https://api.digitalocean.com/v2";
 const snapshotId = DIGITAL_OCEAN_SNAPSHOT_ID;
 const firewallId = DIGITAL_OCEAN_FIREWALL_ID;
+const domain = DIGITAL_OCEAN_DOMAIN;
 
 const secondTimeout = 1000;
 
@@ -336,7 +339,8 @@ export async function waitForNetworkAccess(
 // ******************** MAIN ******************** //
 
 export async function createDroplet(
-  dropletName: string
+  dropletName: string,
+  subdomain?: string
 ): Promise<DigitalOceanDroplet | undefined> {
   const snapshot = await getSnapshotID();
   let snapshotObjId = undefined;
@@ -387,6 +391,14 @@ export async function createDroplet(
     const ip = await checkDropletStatusOnInit(droplet?.id, firewallId);
     const successMsg = `Completed setting up droplet with IP: ${ip}`;
     console.log({ status: 201, response: successMsg });
+
+    if (domain && subdomain && ip) {
+      const resWithSubdomain = await addSubdomain(subdomain, ip);
+      if (resWithSubdomain) {
+        const subdomainSuccessMsg = `Droplet ${dropletName} is ready at ${subdomain}.${domain}`;
+        console.log({ status: 201, response: subdomainSuccessMsg });
+      }
+    }
 
     return droplet;
   } catch (error: DigitalOceanCatchError | any) {

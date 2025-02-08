@@ -7,6 +7,7 @@ import {
   DigitalOceanCatchError,
   DigitalOceanCredentials,
 } from "../interfaces/interfaces";
+import { deleteSubdomain } from "./subdomain";
 
 const { DIGITAL_OCEAN_ACCESS_TOKEN }: DigitalOceanCredentials = process.env;
 
@@ -14,7 +15,8 @@ const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
 const apiUrl = "https://api.digitalocean.com/v2";
 
 export async function deleteDroplet(
-  dropletId: number
+  dropletId: number,
+  subdomain?: string
 ): Promise<string | undefined> {
   const startMsg = `Deleting droplet with ID: ${dropletId}`;
   console.log({ status: 100, response: startMsg });
@@ -33,6 +35,10 @@ export async function deleteDroplet(
     const endTime = new Date().getTime();
     const successMsg = `Droplet with ID ${dropletId} has been deleted successfully`;
     console.log({ status: 200, response: successMsg + `: TS_END ${endTime}` });
+
+    if (subdomain) {
+      await deleteSubdomain(subdomain);
+    }
 
     return successMsg;
   } catch (error: DigitalOceanCatchError | any) {

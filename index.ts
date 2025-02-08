@@ -13,11 +13,21 @@ import {
   deleteDropletGenerator,
   addFirewallToDropletGenerator,
 } from "./src/generator";
+import {
+  listSubdomains,
+  checkIfSubdomainExists,
+  deleteSubdomain,
+} from "./src/subdomain";
 
-const { DIGITAL_OCEAN_ACCESS_TOKEN }: DigitalOceanCredentials = process.env;
+const {
+  DIGITAL_OCEAN_ACCESS_TOKEN,
+  DIGITAL_OCEAN_DOMAIN,
+}: DigitalOceanCredentials = process.env;
 const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
+const domain = DIGITAL_OCEAN_DOMAIN;
 
 async function run() {
+  const subdomainMessage = "Please provide a valid subdomain";
   const dropletNameMessage = "Please provide a valid name";
   const dropletIdMessage = "Please provide a valid droplet ID";
   const createMessage = "Will create the droplet if it does not exist";
@@ -26,6 +36,7 @@ async function run() {
   const firewallMessage = "Will add a firewall to the specified droplet";
 
   program
+    .option("-s, --subdomain <type>", subdomainMessage)
     .option("-n, --dropletName <type>", dropletNameMessage)
     .option("-i, --dropletId <type>", dropletIdMessage)
     .option("-c, --create", createMessage)
@@ -37,6 +48,7 @@ async function run() {
   program.parse(process.argv);
   const options: CLIArguments = program.opts();
   const {
+    subdomain,
     dropletName,
     dropletId,
     create,
@@ -54,12 +66,6 @@ async function run() {
     return undefined;
   }
 
-  if (!dropletName && !dropletId && !list) {
-    const noIdentifierMsg = `Command is missing the name or ID of a droplet`;
-    console.error({ status: 400, response: noIdentifierMsg });
-    return;
-  }
-
   const createTypeIsUndefined = typeof create === "undefined";
   const listTypeIsUndefined = typeof list === "undefined";
   const deleteTypeIsUndefined =
@@ -71,6 +77,35 @@ async function run() {
     listTypeIsUndefined &&
     deleteTypeIsUndefined &&
     firewallTypeIsUndefined;
+
+  if (!dropletName && subdomain === "" && list) {
+    const startMsg = `Start listing subdomains for: ${domain}`;
+    console.log({ status: 100, response: startMsg });
+    const res = await listSubdomains();
+    return res;
+  }
+
+  if (!dropletName && subdomain && list) {
+    const startMsg = `Checking if subdomain exits: ${subdomain}`;
+    console.log({ status: 100, response: startMsg });
+    const res = await checkIfSubdomainExists(subdomain);
+    return res;
+  }
+
+  // THIS NEEDS TO FIRE OFF AFTER DROPLET IS DELETED
+  //   if (!create && (burn || deleteDroplet)) {
+  //     const startMsg = `Start deleting subdomain: ${subdomain}`;
+  //     console.log({ status: 100, response: startMsg });
+  //     // const res = await deleteSubdomain(subdomain);
+  //     // return res;
+  //     return;
+  //   }
+
+  if (!dropletName && !dropletId && !list) {
+    const noIdentifierMsg = `Command is missing the name or ID of a droplet`;
+    console.error({ status: 400, response: noIdentifierMsg });
+    return;
+  }
 
   if (noType) {
     const noTypeMsg = `Command is missing an action flag: create, list, burn, delete, firewall`;
@@ -107,7 +142,7 @@ async function run() {
   if (dropletName && create) {
     const startMsg = `Create Droplet Generator: ${dropletName}: ${startString}`;
     console.log({ status: 100, response: startMsg });
-    const res = await createDropletGenerator(dropletName, create);
+    const res = await createDropletGenerator(dropletName, create, subdomain);
     return res;
   }
 
@@ -117,7 +152,7 @@ async function run() {
     const startMsg = `Delete Droplet Generator: ${dropletName}: ${startString}`;
     console.log({ status: 100, response: startMsg });
     const numberId = dropletId ? parseInt(dropletId) : undefined;
-    const res = await deleteDropletGenerator(dropletName, numberId);
+    const res = await deleteDropletGenerator(dropletName, numberId, subdomain);
     return res;
   }
 

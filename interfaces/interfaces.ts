@@ -1,6 +1,7 @@
 // ********************* Setup ********************* //
 
 export interface CLIArguments {
+  subdomain?: string;
   dropletName?: string;
   dropletId?: string;
   create?: boolean;
@@ -14,6 +15,7 @@ export interface DigitalOceanCredentials {
   DIGITAL_OCEAN_ACCESS_TOKEN: string;
   DIGITAL_OCEAN_SNAPSHOT_ID: string;
   DIGITAL_OCEAN_FIREWALL_ID: string;
+  DIGITAL_OCEAN_DOMAIN: string;
 }
 
 // ********************* General ********************* //
@@ -22,6 +24,56 @@ export interface DigitalOceanCatchError {
   message: string;
   name: string;
   stack?: string;
+}
+
+// ********************* Domains - Main ********************* //
+
+export interface SubdomainQueryResponse {
+  domain_records: Subdomain[];
+  links: any;
+  meta: {
+    total: number;
+  };
+}
+
+export interface Subdomain {
+  id: number;
+  type: string;
+  name: string;
+  data: string;
+  priority: any;
+  port: number;
+  ttl: number;
+  weight: any;
+  flags: string[];
+  tag: string[];
+}
+
+export interface SubdomainsList {
+  id: number;
+  subdomain: string;
+  domain: string;
+  ip: string;
+}
+
+export interface SubdomainPayload {
+  type: string; // Type of DNS record
+  name: string; // Subdomain
+  data: string; // IP Address to associate domain with
+  ttl: number;
+}
+
+export interface SubdomainResponse {
+  id: number;
+  type: string; // Type of DNS record
+  name: string; // Subdomain
+  data: string; // IP Address to associate domain with
+  priority: any;
+  port: number;
+  ttl: number;
+  weight: any;
+  flags: string[];
+  tag: string[];
 }
 
 // ********************* Droplets - Main ********************* //
