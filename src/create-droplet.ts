@@ -13,6 +13,7 @@ import {
 } from "../interfaces/interfaces";
 import { deleteDroplet } from "./delete-droplet";
 import { addSubdomain } from "./subdomain";
+import { updateNginxConfig } from "./ssl-nginx";
 
 const {
   DIGITAL_OCEAN_ACCESS_TOKEN,
@@ -399,6 +400,10 @@ export async function createDroplet(
         console.log({ status: 201, response: subdomainSuccessMsg });
 
         // Then configure SSL & DNS for server
+        const completeDomain = `${subdomain}.${domain}`;
+        const username = "root"; // Change this to your username if needed
+        const privateKeyPath = ""; // Path to the private key for SSH login
+        await updateNginxConfig(completeDomain, ip, username, privateKeyPath);
       }
     }
 
