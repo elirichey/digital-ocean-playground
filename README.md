@@ -2,14 +2,6 @@
 
 CLI tool for working with Digital Ocean Droplets
 
-- Get all Droplets
-- Get Droplet Overview
-- Create Droplet
-  - Create from Snapshot
-  - Add Firewall
-- Delete Droplet
-- Add Firewall to Droplet
-
 <br>
 <br>
 
@@ -19,9 +11,14 @@ CLI tool for working with Digital Ocean Droplets
 
 ##### _Note_
 
-- Droplet Name or Droplet ID are required for all requests **_except_** Listing Account Droplets!!!
+- Droplet Name or Droplet ID are required for all requests **_except_** SSL OR Listing Account Droplets!!!
 
 <br>
+
+**Get SSL Certs**
+
+- Purpose: Get list of SSL certs tied to account
+- Flag: `-ssl` or `--ssl`
 
 **Droplet Name**
 
@@ -79,4 +76,5 @@ DIGITAL_OCEAN_ACCESS_TOKEN=""
 DIGITAL_OCEAN_SNAPSHOT_ID=""
 DIGITAL_OCEAN_FIREWALL_ID=""
 DIGITAL_OCEAN_DOMAIN=""
+DIGITAL_OCEAN_SSH_KEYS=""  # seperate values with ',' ie: 1234,3214
 ```

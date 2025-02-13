@@ -20,6 +20,7 @@ const {
   DIGITAL_OCEAN_SNAPSHOT_ID,
   DIGITAL_OCEAN_FIREWALL_ID,
   DIGITAL_OCEAN_DOMAIN,
+  DIGITAL_OCEAN_SSH_KEYS,
 }: DigitalOceanCredentials = process.env;
 
 const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
@@ -27,6 +28,7 @@ const apiUrl = "https://api.digitalocean.com/v2";
 const snapshotId = DIGITAL_OCEAN_SNAPSHOT_ID;
 const firewallId = DIGITAL_OCEAN_FIREWALL_ID;
 const domain = DIGITAL_OCEAN_DOMAIN;
+const sslKeys = DIGITAL_OCEAN_SSH_KEYS;
 
 const secondTimeout = 1000;
 
@@ -337,6 +339,7 @@ export async function waitForNetworkAccess(
   console.error({ status: 400, response: timeoutErrorMsg });
   return false;
 }
+
 // ******************** MAIN ******************** //
 
 export async function createDroplet(
@@ -351,12 +354,19 @@ export async function createDroplet(
   let firewallObjId = undefined;
   if (firewall) firewallObjId = firewall?.id;
 
+  let ssh_keys: number[] | null = null;
+  const hasSslKeys = typeof sslKeys === "string";
+  if (hasSslKeys) {
+    const keys = sslKeys.split(",").map(Number);
+    if (keys.length > 0) ssh_keys = keys;
+  }
+
   const dropletConfig: DropletConfig = {
     name: dropletName, // Name of your droplet
     region: "nyc1", // Choose a region (e.g., 'nyc1', 'sfo3', etc.)
     size: "c-60-intel", // Droplet size (e.g., 'c-60-intel', 's-1vcpu-1gb', 's-2vcpu-2gb', etc.)
     image: snapshotObjId ? snapshotObjId : "ubuntu-24-10-x64", // OS image (e.g., 'ubuntu-24-10-x64', 'ubuntu-22-04-x64', 'centos-7-x64', etc.)
-    ssh_keys: null, // You can specify an array of SSH keys (optional)
+    ssh_keys, // You can specify an array of SSH keys (optional)
     backups: false, // Enable backups (optional)
     ipv6: true, // Enable IPv6 (optional)
     user_data: null, // User data script (optional)

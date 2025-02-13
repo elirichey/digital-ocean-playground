@@ -13,11 +13,8 @@ import {
   deleteDropletGenerator,
   addFirewallToDropletGenerator,
 } from "./src/generator";
-import {
-  listSubdomains,
-  checkIfSubdomainExists,
-  deleteSubdomain,
-} from "./src/subdomain";
+import { listSubdomains, checkIfSubdomainExists } from "./src/subdomain";
+import { getAccountSslCerts } from "./src/ssl";
 
 const {
   DIGITAL_OCEAN_ACCESS_TOKEN,
@@ -27,6 +24,7 @@ const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
 const domain = DIGITAL_OCEAN_DOMAIN;
 
 async function run() {
+  const sslMessage = "Will return a list of SSL certifications tied to account";
   const subdomainMessage = "Please provide a valid subdomain";
   const dropletNameMessage = "Please provide a valid name";
   const dropletIdMessage = "Please provide a valid droplet ID";
@@ -36,6 +34,7 @@ async function run() {
   const firewallMessage = "Will add a firewall to the specified droplet";
 
   program
+    .option("-ssl, --ssl", sslMessage)
     .option("-s, --subdomain <type>", subdomainMessage)
     .option("-n, --dropletName <type>", dropletNameMessage)
     .option("-i, --dropletId <type>", dropletIdMessage)
@@ -48,6 +47,7 @@ async function run() {
   program.parse(process.argv);
   const options: CLIArguments = program.opts();
   const {
+    ssl,
     subdomain,
     dropletName,
     dropletId,
@@ -65,6 +65,17 @@ async function run() {
     console.error({ status: 400, response: noApiTokenMsg });
     return undefined;
   }
+
+  // Return SSL if ssl is true
+
+  if (ssl) {
+    const startMsg = `Start getting account SSL certs`;
+    console.log({ status: 100, response: startMsg });
+    const res = await getAccountSslCerts();
+    return res;
+  }
+
+  // If not SSL, run other scripts
 
   const createTypeIsUndefined = typeof create === "undefined";
   const listTypeIsUndefined = typeof list === "undefined";

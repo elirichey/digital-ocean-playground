@@ -1,6 +1,7 @@
 // ********************* Setup ********************* //
 
 export interface CLIArguments {
+  ssl?: boolean;
   subdomain?: string;
   dropletName?: string;
   dropletId?: string;
@@ -16,6 +17,7 @@ export interface DigitalOceanCredentials {
   DIGITAL_OCEAN_SNAPSHOT_ID: string;
   DIGITAL_OCEAN_FIREWALL_ID: string;
   DIGITAL_OCEAN_DOMAIN: string;
+  DIGITAL_OCEAN_SSH_KEYS?: string; // seperate values with ',' ie: 1234,3214
 }
 
 // ********************* General ********************* //
@@ -24,6 +26,15 @@ export interface DigitalOceanCatchError {
   message: string;
   name: string;
   stack?: string;
+}
+
+// ********************* SSH - Main ********************* //
+
+export interface SslRecord {
+  id: number;
+  public_key: string;
+  name: string;
+  fingerprint: string;
 }
 
 // ********************* Domains - Main ********************* //
@@ -98,7 +109,7 @@ export interface DropletConfig {
   region: string;
   size: string;
   image: string;
-  ssh_keys: null;
+  ssh_keys: number[] | null;
   backups: boolean;
   ipv6: boolean;
   user_data: null;
