@@ -7,6 +7,7 @@ import {
   listDropletsByAccount,
   checkDropletExistsByName,
   checkDropletExistsByID,
+  getDropletById,
 } from "./general-droplet";
 import {
   addFirewallToDroplet,
@@ -66,7 +67,8 @@ export async function listDropletGenerator(
   }
 
   if (dropletId) {
-    droplet = await checkDropletExistsByID(dropletId);
+    droplet = await getDropletById(`${dropletId}`);
+    // droplet = await checkDropletExistsByID(dropletId);
     return droplet;
   }
 

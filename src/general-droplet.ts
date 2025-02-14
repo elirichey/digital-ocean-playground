@@ -45,6 +45,35 @@ export async function listDropletsByAccount(): Promise<DropletsResponse> {
   }
 }
 
+// DigitalOceanDroplet
+export async function getDropletById(id: string): Promise<any> {
+  try {
+    const response = await fetch(`${apiUrl}/droplets/${id}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiToken}` },
+    });
+
+    if (!response.ok) {
+      const notOkMsg = `Error fetching account droplet with ID ${id}: ${response.statusText}`;
+      throw new Error(notOkMsg);
+    }
+
+    const data: DropletsResponse = await response.json();
+    const resMsg = `Got Droplet ${id} for Account`;
+    console.log({ status: 200, response: resMsg, body: data });
+    return data;
+  } catch (error: DigitalOceanCatchError | any) {
+    const catchMsg = `Catch error checking account for droplet with ID ${id}: ${error?.message}`;
+    console.log({
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+    });
+    console.error({ status: 400, response: catchMsg });
+    return { droplets: [] };
+  }
+}
+
 export async function checkDropletExistsByName(
   dropletName: string
 ): Promise<DigitalOceanDroplet | undefined> {
@@ -104,7 +133,7 @@ export async function checkDropletExistsByID(
       accountDroplets.droplets.find((droplet) => droplet.id === dropletId);
 
     const successMsg = `Droplet with the ID "${dropletId}" exists. It's name is ${droplet?.name}.`;
-    console.log({ status: 200, response: successMsg });
+    console.log({ status: 200, response: successMsg, body: droplet });
 
     // const ip = await getDropletIP(`${dropletId}`);
     // console.log({ ip });
