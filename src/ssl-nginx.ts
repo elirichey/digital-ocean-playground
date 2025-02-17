@@ -10,15 +10,16 @@ async function generateSslCertificate(
   domain: string
 ): Promise<SslNginxResponse> {
   try {
-    const startGeneratingSSLMsg = "Generating SSL certificate using Certbot...";
+    const startGeneratingSSLMsg = `Generating SSL certificate using Certbot for domain ${domain}...`;
     console.log({ status: 100, response: startGeneratingSSLMsg });
 
+    const email = `email@email.com`;
     // Run Certbot to generate the SSL certificate
-    const certbotCommand = `certbot --nginx -d ${domain} --agree-tos --non-interactive --email your-email@example.com`;
+    const certbotCommand = `certbot --nginx -d ${domain} --agree-tos --non-interactive --email ${email}`;
     const certbotResult = await ssh.execCommand(certbotCommand);
 
     if (certbotResult.code !== 0) {
-      const hasErrorMsg = "Certbot failed to generate SSL certificate";
+      const hasErrorMsg = `Certbot failed to generate SSL certificate for domain ${domain}`;
       const errorBody = certbotResult.stderr;
       const response = { status: 400, response: hasErrorMsg };
       console.error(response, errorBody);
@@ -36,41 +37,85 @@ async function generateSslCertificate(
     console.log(response);
     return response;
   } catch (error) {
-    const errorMsg = `"Catch Error generating SSL certificate"`;
+    const errorMsg = `Catch Error generating SSL certificate`;
     const response = { status: 400, response: errorMsg };
     console.log({ ...response, body: error });
     return response;
   }
 }
 
+function generateNginxDefault(domain: string): string {
+  return `server {
+    # Redirect HTTP to HTTPS
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    root /var/www/html;
+
+    index index.html index.htm index.nginx-debian.html;
+
+    server_name ${domain};  # Replace with your domain
+
+    # Try to serve static files, if not, proxy to the backend
+    location / {
+      try_files $uri $uri/ @proxy;
+    }
+
+    # Define a named location for proxying
+    location @proxy {
+      proxy_pass http://localhost:3000;
+    }
+
+    # Redirect all HTTP traffic to HTTPS
+    return 301 https://$server_name$request_uri;
+  }
+
+  server {
+      # SSL Configuration for HTTPS
+      listen 443 ssl;
+      server_name ${domain};  # Replace with your domain
+
+      ssl_certificate /etc/letsencrypt/live/${domain}/fullchain.pem;  # Path to your SSL certificate
+      ssl_certificate_key /etc/letsencrypt/live/${domain}/privkey.pem;  # Path to your SSL private key
+      # ssl_protocols TLSv1.2 TLSv1.3;
+
+      location / {
+        proxy_pass http://localhost:3000;
+      }
+  }`;
+}
+
 function generateNginxConfig(domain: string): string {
-  return `
-        server {
-            # Redirect HTTP to HTTPS
-            listen 80;
-            server_name ${domain};
+  return `server {
+    # Redirect HTTP to HTTPS
+    listen 80;
+    server_name ${domain};
 
-            # Redirect all HTTP traffic to HTTPS
-            return 301 https://$server_name$request_uri;
-        }
+    location / {
+      proxy_pass http://localhost:3000;
+    }
 
-        server {
-            # SSL Configuration for HTTPS
-            listen 443 ssl;
-            server_name ${domain};
+    # Redirect all HTTP traffic to HTTPS
+    return 301 https://$server_name$request_uri;
+  }
 
-            # Path to SSL certificates
-            ssl_certificate /etc/ssl/certs/${domain}.crt;
-            ssl_certificate_key /etc/ssl/private/${domain}.key;
-        }
-    `;
+  server {
+      # SSL Configuration for HTTPS
+      listen 443 ssl;
+      server_name ${domain};
+
+      location / {
+        proxy_pass http://localhost:3000;
+      }            
+  }`;
 }
 
 export async function updateNginxConfig(
   domain: string,
   dropletIp: string,
   username: string,
-  privateKey: string
+  privateKey: string,
+  passphrase: string
 ): Promise<SslNginxResponse> {
   const ssh: NodeSSH = new NodeSSH();
 
@@ -79,13 +124,14 @@ export async function updateNginxConfig(
       host: dropletIp,
       username, //  "root", // Change this to your username if needed
       privateKey, // Path to the private key for SSH login
+      passphrase,
     });
 
     const connectedMsg = `Connected to ${dropletIp}`;
     console.log({ status: 100, response: connectedMsg });
 
     // Generate SSH Keys
-    const ssl = await generateSslCertificate(domain, dropletIp);
+    const ssl = await generateSslCertificate(ssh, domain);
     if (ssl.status !== 200) {
       const errorMsg = `Error generating SSH Keys`;
       const response = { status: 400, response: errorMsg };
@@ -94,23 +140,17 @@ export async function updateNginxConfig(
     }
 
     // Define the NGINX configuration for the domain
-    const nginxConfig = generateNginxConfig(domain);
+    const nginxDefault = generateNginxDefault(domain);
+    const defaultFilePath = `/etc/nginx/sites-available/default`;
+    await ssh.execCommand(`echo "${nginxDefault}" > ${defaultFilePath}`);
 
     // Create the NGINX config file on the server
+    const nginxConfig = generateNginxConfig(domain);
     const configFilePath = `/etc/nginx/sites-available/${domain}`;
-    await ssh.execCommand(
-      `echo "${nginxConfig.replace(/[\r\n]+/g, " ")}" > ${configFilePath}`
-    );
+    await ssh.execCommand(`echo "${nginxConfig}" > ${configFilePath}`);
 
-    const nginxFileSuccessMsg = `NGINX configuration written to ${configFilePath}`;
-    console.log({ status: 201, response: nginxFileSuccessMsg });
-
-    // Create a symlink to enable the site
     const symlinkPath = `/etc/nginx/sites-enabled/${domain}`;
     await ssh.execCommand(`ln -s ${configFilePath} ${symlinkPath}`);
-
-    const symLinkSuccessMsg = `Created symlink for ${domain}`;
-    console.log({ status: 201, response: symLinkSuccessMsg });
 
     // Test the NGINX configuration for syntax errors
     const testConfigResult = await ssh.execCommand("nginx -t");
