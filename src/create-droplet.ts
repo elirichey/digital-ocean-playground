@@ -21,6 +21,8 @@ const {
   DIGITAL_OCEAN_FIREWALL_ID,
   DIGITAL_OCEAN_DOMAIN,
   DIGITAL_OCEAN_SSH_KEYS,
+  SSL_PRIVATE_KEY_PATH,
+  SSL_PRIVATE_KEY_PASSWORD,
 }: DigitalOceanCredentials = process.env;
 
 const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
@@ -29,6 +31,9 @@ const snapshotId = DIGITAL_OCEAN_SNAPSHOT_ID;
 const firewallId = DIGITAL_OCEAN_FIREWALL_ID;
 const domain = DIGITAL_OCEAN_DOMAIN;
 const sslKeys = DIGITAL_OCEAN_SSH_KEYS;
+
+const privateKeyPath = SSL_PRIVATE_KEY_PATH;
+const privateKeyPassphrase = SSL_PRIVATE_KEY_PASSWORD;
 
 const secondTimeout = 1000;
 
@@ -361,10 +366,17 @@ export async function createDroplet(
     if (keys.length > 0) ssh_keys = keys;
   }
 
+  // Server Type
+  // - Development      c2-4vcpu-8gb-intel     $122 / Month       $0.18155 / Hour
+  // - Slow             c-8-intel              $218 / Month       $0.32440 / Hour
+  // - Medium           c-16-intel             $437 / Month       $0.65030 / Hour
+  // - Fast             c-32-intel             $874 / Month       $1.30060 / Hour
+  // - Blazing          c-60-intel             $1,639 / Month     $2.43899 / Hour
+
   const dropletConfig: DropletConfig = {
     name: dropletName, // Name of your droplet
     region: "nyc1", // Choose a region (e.g., 'nyc1', 'sfo3', etc.)
-    size: "c-60-intel", // Droplet size (e.g., 'c-60-intel', 's-1vcpu-1gb', 's-2vcpu-2gb', etc.)
+    size: "c2-4vcpu-8gb-intel",
     image: snapshotObjId ? snapshotObjId : "ubuntu-24-10-x64", // OS image (e.g., 'ubuntu-24-10-x64', 'ubuntu-22-04-x64', 'centos-7-x64', etc.)
     ssh_keys, // You can specify an array of SSH keys (optional)
     backups: false, // Enable backups (optional)
@@ -412,8 +424,13 @@ export async function createDroplet(
         // Then configure SSL & DNS for server
         const completeDomain = `${subdomain}.${domain}`;
         const username = "root"; // Change this to your username if needed
-        const privateKeyPath = ""; // Path to the private key for SSH login
-        await updateNginxConfig(completeDomain, ip, username, privateKeyPath);
+        await updateNginxConfig(
+          completeDomain,
+          ip,
+          username,
+          privateKeyPath,
+          privateKeyPassphrase
+        );
       }
     }
 

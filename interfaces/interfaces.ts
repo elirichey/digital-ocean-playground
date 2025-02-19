@@ -18,6 +18,10 @@ export interface DigitalOceanCredentials {
   DIGITAL_OCEAN_FIREWALL_ID: string;
   DIGITAL_OCEAN_DOMAIN: string;
   DIGITAL_OCEAN_SSH_KEYS?: string; // seperate values with ',' ie: 1234,3214
+
+  SSL_USER: string;
+  SSL_PRIVATE_KEY_PATH: string;
+  SSL_PRIVATE_KEY_PASSWORD: string;
 }
 
 // ********************* General ********************* //
