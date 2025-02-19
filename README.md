@@ -78,7 +78,8 @@ DIGITAL_OCEAN_FIREWALL_ID=""
 DIGITAL_OCEAN_DOMAIN=""
 DIGITAL_OCEAN_SSH_KEYS=""  # seperate values with ',' ie: 1234,3214
 
+SSL_SIGNING_EMAIL=""
 SSL_USER=""
-SSL_PRIVATE_KEY_PATH=""
-SSL_PRIVATE_KEY_PASSWORD=""
+SSL_PRIVATE_KEY_PATH="" # Path to private key for server auth
+SSL_PRIVATE_KEY_PASSWORD="" # Password for private ssh key - if needed / exists
 ```

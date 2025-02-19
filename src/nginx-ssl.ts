@@ -1,5 +1,13 @@
+declare var process: any;
+
+import dotenv from "dotenv";
+dotenv.config();
+
 import { NodeSSH } from "node-ssh";
 import { LogBody } from "../interfaces/interfaces";
+
+const { SSL_SIGNING_EMAIL } = process.env;
+const email = SSL_SIGNING_EMAIL;
 
 interface SslNginxResponse {
   status: number; // 200 | 400
@@ -7,8 +15,8 @@ interface SslNginxResponse {
 }
 
 const logger = {
-  log: (response: any) => console.log("ServerDeploySslNginx", { response }),
-  error: (response: any) => console.error("ServerDeploySslNginx", { response }),
+  log: (response: any) => console.log("ServerNginxSSL", { response }),
+  error: (response: any) => console.error("ServerNginxSSL", { response }),
 };
 
 function logData(options: Partial<LogBody>) {
@@ -32,7 +40,6 @@ async function generateSslCertificate(
     const startGeneratingSSLMsg = `Generating SSL certificate using Certbot for domain ${domain}...`;
     logData({ status: 100, response: startGeneratingSSLMsg });
 
-    const email = `email@email.com`;
     // Run Certbot to generate the SSL certificate
     const certbotCommand = `certbot --nginx -d ${domain} --agree-tos --non-interactive --email ${email}`;
     const certbotResult = await ssh.execCommand(certbotCommand);
@@ -161,15 +168,48 @@ export async function updateNginxConfig(
     // Define the NGINX configuration for the domain
     const nginxDefault = generateNginxDefault(domain);
     const defaultFilePath = `/etc/nginx/sites-available/default`;
-    await ssh.execCommand(`echo "${nginxDefault}" > ${defaultFilePath}`);
+    const newNginxDefaultCommand = `echo "${nginxDefault}" > ${defaultFilePath}`;
+    const newNginxDefault = await ssh.execCommand(newNginxDefaultCommand);
+
+    if (newNginxDefault.code !== 0) {
+      const failedMsg = `Failed writing NGINX Default configuration to ${defaultFilePath}`;
+      const res = { status: 400, response: failedMsg };
+      logData(res);
+      return res;
+    }
+
+    const nginxDefaultSuccessMsg = `NGINX Default configuration written to ${defaultFilePath}`;
+    logData({ status: 101, response: nginxDefaultSuccessMsg });
 
     // Create the NGINX config file on the server
     const nginxConfig = generateNginxConfig(domain);
     const configFilePath = `/etc/nginx/sites-available/${domain}`;
-    await ssh.execCommand(`echo "${nginxConfig}" > ${configFilePath}`);
+    const newSitesAvailableCommand = `echo "${nginxConfig}" > ${configFilePath}`;
+    const sitesAvailable = await ssh.execCommand(newSitesAvailableCommand);
+
+    if (sitesAvailable.code !== 0) {
+      const failedMsg = `Failed writing NGINX Sites Available configuration to ${configFilePath}`;
+      const res = { status: 400, response: failedMsg };
+      logData(res);
+      return res;
+    }
+
+    const nginxFileSuccessMsg = `NGINX Sites Available configuration written to ${configFilePath}`;
+    logData({ status: 101, response: nginxFileSuccessMsg });
 
     const symlinkPath = `/etc/nginx/sites-enabled/${domain}`;
-    await ssh.execCommand(`ln -s ${configFilePath} ${symlinkPath}`);
+    const newSitesEnabledCommand = `ln -s ${configFilePath} ${symlinkPath}`;
+    const sitesEnabled = await ssh.execCommand(newSitesEnabledCommand);
+
+    if (sitesEnabled.code !== 0) {
+      const failedMsg = `Failed creating symlink for ${domain} in Sites Enabled`;
+      const res = { status: 400, response: failedMsg };
+      logData(res);
+      return res;
+    }
+
+    const symLinkSuccessMsg = `Created symlink for ${domain} in Sites Enabled`;
+    logData({ status: 101, response: symLinkSuccessMsg });
 
     // Test the NGINX configuration for syntax errors
     const testConfigResult = await ssh.execCommand("nginx -t");
@@ -200,13 +240,3 @@ export async function updateNginxConfig(
     return response;
   }
 }
-
-/*/
-// Example usage
-const domain = "domain.example.com"; // Your domain
-const dropletIp = "your_droplet_ip"; // Replace with your droplet's IP address
-const username = "root";
-const privateKey = path.join(__dirname, "path_to_your_private_key"); // Path to your private key file
-
-updateNginxConfig(domain, dropletIp, username, privateKey);
-/*/

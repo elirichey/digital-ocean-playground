@@ -3,96 +3,118 @@ declare var process: any;
 import dotenv from "dotenv";
 dotenv.config();
 
+import * as fs from "node:fs";
+import * as os from "node:os";
+
+import axios from "axios";
 import {
+  LogBody,
   DigitalOceanCatchError,
-  DigitalOceanCredentials,
   DigitalOceanDroplet,
   DigtialOceanFirewall,
   DigtialOceanSnapshot,
   DropletConfig,
+  DropletNetwork,
+  SuccessfulDroletDeployed,
 } from "../interfaces/interfaces";
-import { deleteDroplet } from "./delete-droplet";
 import { addSubdomain } from "./subdomain";
-import { updateNginxConfig } from "./ssl-nginx";
+import { updateNginxConfig } from "./nginx-ssl";
 
 const {
   DIGITAL_OCEAN_ACCESS_TOKEN,
-  DIGITAL_OCEAN_SNAPSHOT_ID,
   DIGITAL_OCEAN_FIREWALL_ID,
   DIGITAL_OCEAN_DOMAIN,
   DIGITAL_OCEAN_SSH_KEYS,
+  SSL_USER,
   SSL_PRIVATE_KEY_PATH,
   SSL_PRIVATE_KEY_PASSWORD,
-}: DigitalOceanCredentials = process.env;
+} = process.env;
 
 const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
 const apiUrl = "https://api.digitalocean.com/v2";
-const snapshotId = DIGITAL_OCEAN_SNAPSHOT_ID;
 const firewallId = DIGITAL_OCEAN_FIREWALL_ID;
 const domain = DIGITAL_OCEAN_DOMAIN;
-const sslKeys = DIGITAL_OCEAN_SSH_KEYS;
-
-const privateKeyPath = SSL_PRIVATE_KEY_PATH;
-const privateKeyPassphrase = SSL_PRIVATE_KEY_PASSWORD;
 
 const secondTimeout = 1000;
+
+const logger = {
+  log: (response: any) => console.log("ServerCreate", { response }),
+  error: (response: any) => console.error("ServerCreate", { response }),
+};
+
+function logData(options: Partial<LogBody>) {
+  const log: Partial<LogBody> = {};
+  options.status ? (log.status = options.status) : null;
+  options.response ? (log.response = options.response) : null;
+  options.body ? (log.body = options.body) : null;
+  log.dateTime = new Date().getTime();
+
+  const hasStatusError =
+    options.status && (options.status === 400 || options.status === 404);
+  if (hasStatusError) logger.error(JSON.stringify(log));
+  else logger.log(JSON.stringify(log));
+}
 
 // ******************** SNAPSHOTS ******************** //
 
 export async function getAvailableSnapshots(): Promise<
   DigtialOceanSnapshot[] | undefined
 > {
+  interface SnapshotsResponse {
+    status: number;
+    snapshots: DigtialOceanSnapshot[];
+  }
+
   try {
-    const response = await fetch(`${apiUrl}/snapshots`, {
-      method: "GET",
+    const response = await axios.get<SnapshotsResponse>(`${apiUrl}/snapshots`, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiToken}`,
       },
     });
 
-    if (!response.ok) {
+    if (response.status !== 200) {
       const notOkMsg = `Error getting snapshots info: ${response.statusText}`;
-      throw new Error(notOkMsg);
+      logData({ status: 400, response: notOkMsg, body: response });
+      return undefined;
     }
 
-    const data = await response.json();
-    const snapshots: DigtialOceanSnapshot[] = data?.snapshots;
+    const snapshots: DigtialOceanSnapshot[] = response?.data?.snapshots;
     return snapshots;
   } catch (error: DigitalOceanCatchError | any) {
     const catchMsg = `Catch error getting snapshots info: ${error?.message}`;
-    console.error({ status: 400, response: catchMsg });
+    logData({ status: 400, response: catchMsg });
     return undefined;
   }
 }
 
-export async function getSnapshotID(): Promise<
-  DigtialOceanSnapshot | undefined
-> {
+export async function getSnapshotID(
+  snapshotName: string
+): Promise<DigtialOceanSnapshot | undefined> {
   const snapshots = await getAvailableSnapshots();
   const hasSnapshots = snapshots && snapshots.length > 0;
   if (!hasSnapshots) {
     const noSnapshotsMsg = `No Snapshots found`;
-    console.error({ status: 404, response: noSnapshotsMsg });
+    logData({ status: 404, response: noSnapshotsMsg });
     return undefined;
   }
 
   const snapshotExists: boolean = snapshots.some(
-    (snap: DigtialOceanSnapshot) => snap.name.trim() === snapshotId.trim()
+    (snap: DigtialOceanSnapshot) => snap.name.trim() === snapshotName?.trim()
   );
 
   if (!snapshotExists) {
-    const noSnapshotsMsg = `No Snapshot found with name: ${snapshotId}`;
-    console.error({ status: 404, response: noSnapshotsMsg });
+    const noSnapshotsMsg = `No Snapshot found with name: ${snapshotName}`;
+    logData({ status: 404, response: noSnapshotsMsg });
     return undefined;
   }
 
   const snapshot: DigtialOceanSnapshot | undefined = snapshots.find(
-    (snap: DigtialOceanSnapshot) => snap.name.trim() === snapshotId.trim()
+    (snap: DigtialOceanSnapshot) => snap.name.trim() === snapshotName?.trim()
   );
 
-  const snapshotFoundMsg = `Snapshot found with name: ${snapshotId}`;
-  console.log({ status: 200, response: snapshotFoundMsg });
+  const snapshotFoundMsg = `Snapshot found with name: ${snapshotName}`;
+  logData({ status: 200, response: snapshotFoundMsg });
 
   return snapshot;
 }
@@ -103,25 +125,36 @@ async function checkDropletStatusOnInit(
   dropletId: number,
   firewallId?: string
 ): Promise<string | undefined> {
+  interface DropletResponse {
+    status: number;
+    droplet: DigitalOceanDroplet;
+  }
+
   let showDeployingTimeout = true;
   const checkMsThreshold = 5 * 1000; // 5 seconds
   while (true) {
-    const response = await fetch(`${apiUrl}/droplets/${dropletId}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${apiToken}` },
-    });
-    const data = await response.json();
+    const response = await axios.get<DropletResponse>(
+      `${apiUrl}/droplets/${dropletId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiToken}`,
+        },
+      }
+    );
+
+    const data = response.data;
 
     if (data.droplet.status === "active") {
       const completeMsg = `Droplet ${dropletId} is active and ready`;
-      console.log({ status: 200, response: completeMsg });
+      logData({ status: 200, response: completeMsg });
 
       if (firewallId) {
         const firewall = await getFirewallID();
         if (!firewall) {
-          await deleteDroplet(dropletId);
           const failedMsg = `Could not find firewall with name: ${firewallId}`;
-          throw new Error(failedMsg);
+          logData({ status: 400, response: failedMsg });
+          return undefined;
         }
 
         const firewallResult = await addFirewallToDroplet(
@@ -129,23 +162,24 @@ async function checkDropletStatusOnInit(
           firewall.id
         );
         if (!firewallResult) {
-          await deleteDroplet(dropletId);
           const failedMsg = `Failed to assign firewall ${firewall.id} to droplet ${dropletId}`;
-          throw new Error(failedMsg);
+          logData({ status: 400, response: failedMsg });
+          return undefined;
         }
 
         const networkAccess = await waitForNetworkAccess(dropletId);
         if (!networkAccess) {
-          await deleteDroplet(dropletId);
+          // await deleteDroplet(dropletId);
           const failedMsg = `Droplet ${dropletId} is not responding on port 80`;
-          throw new Error(failedMsg);
+          logData({ status: 400, response: failedMsg });
+          return undefined;
         }
       }
 
       const ip = await getDropletIP(dropletId);
       if (ip) {
         const successMsg = `Droplet IP is ready: ${ip}`;
-        console.log({ status: 200, response: successMsg });
+        logData({ status: 200, response: successMsg });
         return ip;
       }
 
@@ -154,7 +188,7 @@ async function checkDropletStatusOnInit(
       if (showDeployingTimeout) {
         showDeployingTimeout = false;
         const activeMsg = `Droplet ${dropletId} is still deploying...`;
-        console.log({ status: 102, response: activeMsg });
+        logData({ status: 102, response: activeMsg });
         await new Promise((resolve) => setTimeout(resolve, checkMsThreshold));
       }
     }
@@ -166,26 +200,30 @@ async function checkDropletStatusOnInit(
 export async function getFirewalls(): Promise<
   DigtialOceanFirewall[] | undefined
 > {
+  interface FirewallsResponse {
+    status: number;
+    firewalls: DigtialOceanFirewall[];
+  }
+
   try {
-    const response = await fetch(`${apiUrl}/firewalls`, {
-      method: "GET",
+    const response = await axios.get<FirewallsResponse>(`${apiUrl}/firewalls`, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiToken}`,
       },
     });
 
-    if (!response.ok) {
+    if (response.status !== 200) {
       const notOkMsg = `Error getting firewalls info: ${response.statusText}`;
-      throw new Error(notOkMsg);
+      logData({ status: 400, response: notOkMsg, body: response });
+      return undefined;
     }
 
-    const data = await response.json();
-    const firewalls: DigtialOceanFirewall[] = data?.firewalls;
+    const firewalls: DigtialOceanFirewall[] = response?.data?.firewalls;
     return firewalls;
   } catch (error: DigitalOceanCatchError | any) {
     const catchMsg = `Catch error getting firewalls info: ${error?.message}`;
-    console.error({ status: 400, response: catchMsg });
+    logData({ status: 400, response: catchMsg });
     return undefined;
   }
 }
@@ -197,26 +235,26 @@ export async function getFirewallID(): Promise<
   const hasFirewalls = firewalls && firewalls.length > 0;
   if (!hasFirewalls) {
     const noFirewallsMsg = `No Firewalls found`;
-    console.error({ status: 404, response: noFirewallsMsg });
+    logData({ status: 404, response: noFirewallsMsg });
     return undefined;
   }
 
   const firewallExists: boolean = firewalls.some(
-    (fw: DigtialOceanFirewall) => fw.name.trim() === firewallId.trim()
+    (fw: DigtialOceanFirewall) => fw.name.trim() === firewallId?.trim()
   );
 
   if (!firewallExists) {
     const noFirewallMsg = `No Firewalls found with name: ${firewallId}`;
-    console.error({ status: 404, response: noFirewallMsg });
+    logData({ status: 404, response: noFirewallMsg });
     return undefined;
   }
 
   const firewall: DigtialOceanFirewall | undefined = firewalls.find(
-    (fw: DigtialOceanFirewall) => fw.name.trim() === firewallId.trim()
+    (fw: DigtialOceanFirewall) => fw.name.trim() === firewallId?.trim()
   );
 
   const firewallFoundMsg = `Firewall found with name: ${firewallId}`;
-  console.log({ status: 200, response: firewallFoundMsg });
+  logData({ status: 200, response: firewallFoundMsg });
 
   return firewall;
 }
@@ -225,48 +263,50 @@ export async function addFirewallToDroplet(
   dropletId: number,
   firewallId: string
 ): Promise<string | undefined> {
+  interface FirewallResponse {
+    status: number;
+    data: string;
+  }
+
   const addDropletId = Number(dropletId);
   const payload: { droplet_ids: number[] } = {
     droplet_ids: [addDropletId],
   };
 
   const startFirewallMsg = `Trying to add Firewall ${firewallId} to droplet ${dropletId}`;
-  console.log({ status: 100, response: startFirewallMsg });
+  logData({ status: 100, response: startFirewallMsg });
 
   try {
-    const response = await fetch(`${apiUrl}/firewalls/${firewallId}/droplets`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiToken}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    const response = await axios.post<FirewallResponse>(
+      `${apiUrl}/firewalls/${firewallId}/droplets`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiToken}`,
+        },
+      }
+    );
 
     // If response is empty, then it was it's successful! A status of 204 will be returned
     if (response.status === 204) {
       const successMsg = `Successfully added Firewall ${firewallId} to droplet ${dropletId}`;
-      console.log({ status: 200, response: successMsg });
+      logData({ status: 200, response: successMsg });
       return successMsg;
     }
 
-    if (!response.ok) {
-      const notOkMsg = `Error assigning firewall ${firewallId} to droplet ${dropletId}: ${response.statusText}`;
-      console.error({ status: response.status, statusText: notOkMsg });
-      throw new Error(notOkMsg);
+    const responseData = response.data;
+    if (!responseData) {
+      const failedMsg = "Empty response received from server";
+      logData({ status: 400, response: failedMsg });
+      return undefined;
     }
 
-    const responseText = await response.text();
-    if (!responseText) {
-      throw new Error("Empty response received from server");
-    }
-
-    const data = JSON.parse(responseText);
-    console.log({ addFirewallResponse: data });
-    return data;
+    logData({ response: responseData });
+    return "Ok";
   } catch (error: DigitalOceanCatchError | any) {
     const catchMsg = `Catch error assigning firewall: ${error?.message}`;
-    console.error({ status: 400, response: catchMsg });
+    logData({ status: 400, response: catchMsg });
     return undefined;
   }
 }
@@ -276,28 +316,44 @@ export async function addFirewallToDroplet(
 export async function getDropletIP(
   dropletId: number
 ): Promise<string | undefined> {
-  try {
-    const response = await fetch(`${apiUrl}/droplets/${dropletId}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${apiToken}` },
-    });
+  interface Droplet {
+    status: number;
+    droplet: DigitalOceanDroplet;
+  }
 
-    if (!response.ok) {
-      throw new Error(`Failed to get droplet info: ${response.statusText}`);
+  try {
+    const response = await axios.get<Droplet>(
+      `${apiUrl}/droplets/${dropletId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiToken}`,
+        },
+      }
+    );
+
+    if (response.status !== 200) {
+      const failedMsg = `Failed to get droplet info: ${response.statusText}`;
+      logData({ status: 400, response: failedMsg });
+      return undefined;
     }
 
-    const data = await response.json();
-    const networks = data.droplet.networks.v4;
-    const publicIP = networks.find((network: any) => network.type === "public");
+    const data = response.data;
+    const networks: DropletNetwork[] = data.droplet.networks.v4;
+    const publicIP = networks.find(
+      (network: DropletNetwork) => network.type === "public"
+    );
 
     if (!publicIP) {
-      throw new Error("No public IP address found for droplet");
+      const failedMsg = "No public IP address found for droplet";
+      logData({ status: 400, response: failedMsg });
+      return undefined;
     }
 
     return publicIP.ip_address;
   } catch (error: DigitalOceanCatchError | any) {
     const catchError = `Catch error getting droplet IP: ${error?.message}`;
-    console.error({ status: error?.status || 400, response: catchError });
+    logData({ status: error?.status || 400, response: catchError });
     return undefined;
   }
 }
@@ -311,18 +367,25 @@ export async function waitForNetworkAccess(
   if (!ip) return false;
 
   const startMsg = `Checking network access for ${ip}:${port}...`;
-  console.log({ status: 100, response: startMsg });
+  logData({ status: 100, response: startMsg });
+
+  interface NetworkAccess {
+    status: number;
+  }
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const response = await fetch(`http://${ip}:${port}`, {
-        method: "GET",
-        signal: AbortSignal.timeout(secondTimeout), // Short timeout to quickly detect if service is up
+      const response = await axios.get<NetworkAccess>(`http://${ip}:${port}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiToken}`,
+        },
+        timeout: secondTimeout,
       });
 
-      if (response.ok) {
+      if (response.status === 200) {
         const successMsg = `Network access confirmed for ${ip}:${port}`;
-        console.log({ status: 200, response: successMsg });
+        logData({ status: 200, response: successMsg });
         return true;
       }
     } catch (error: DigitalOceanCatchError | any) {
@@ -336,108 +399,172 @@ export async function waitForNetworkAccess(
     if (showAttempts) {
       const attemptNumber = `${attempt + 1}/${maxAttempts}`;
       const waitingMsg = `Waiting for network access... Attempt ${attemptNumber}`;
-      console.log({ status: 102, response: waitingMsg });
+      logData({ status: 102, response: waitingMsg });
     }
   }
 
   const timeoutErrorMsg = `Timeout waiting for network access on ${ip}:${port}`;
-  console.error({ status: 400, response: timeoutErrorMsg });
+  logData({ status: 400, response: timeoutErrorMsg });
   return false;
 }
-
 // ******************** MAIN ******************** //
 
 export async function createDroplet(
   dropletName: string,
-  subdomain?: string
-): Promise<DigitalOceanDroplet | undefined> {
-  const snapshot = await getSnapshotID();
-  let snapshotObjId = undefined;
-  if (snapshot) snapshotObjId = snapshot?.id;
-
-  const firewall = await getFirewallID();
-  let firewallObjId = undefined;
-  if (firewall) firewallObjId = firewall?.id;
-
-  let ssh_keys: number[] | null = null;
+  snapshotId: string,
+  subdomain: string,
+  speed: "Slow" | "Medium" | "Fast" | "Blazing",
+  tags?: string[]
+): Promise<SuccessfulDroletDeployed | undefined> {
+  const sslKeys = DIGITAL_OCEAN_SSH_KEYS;
+  let ssh_keys: string[] | null = null;
   const hasSslKeys = typeof sslKeys === "string";
   if (hasSslKeys) {
-    const keys = sslKeys.split(",").map(Number);
-    if (keys.length > 0) ssh_keys = keys;
+    const keys = sslKeys.split(","); // .map(Number); // to make numbers
+    if (keys.length > 0) ssh_keys = keys.map((k: string) => k.trim());
   }
 
   // Server Type
-  // - Development      c2-4vcpu-8gb-intel     $122 / Month       $0.18155 / Hour
-  // - Slow             c-8-intel              $218 / Month       $0.32440 / Hour
-  // - Medium           c-16-intel             $437 / Month       $0.65030 / Hour
-  // - Fast             c-32-intel             $874 / Month       $1.30060 / Hour
-  // - Blazing          c-60-intel             $1,639 / Month     $2.43899 / Hour
+  // - Development        $122 / Month           $0.18155 / Hour
+  // - Slow               $218 / Month           $0.32440 / Hour
+  // - Medium             $437 / Month           $0.65030 / Hour
+  // - Fast               $874 / Month           $1.30060 / Hour
+  // - Blazing            $1,639 / Month         $2.43899 / Hour
 
-  const dropletConfig: DropletConfig = {
-    name: dropletName, // Name of your droplet
-    region: "nyc1", // Choose a region (e.g., 'nyc1', 'sfo3', etc.)
-    size: "c2-4vcpu-8gb-intel",
-    image: snapshotObjId ? snapshotObjId : "ubuntu-24-10-x64", // OS image (e.g., 'ubuntu-24-10-x64', 'ubuntu-22-04-x64', 'centos-7-x64', etc.)
-    ssh_keys, // You can specify an array of SSH keys (optional)
-    backups: false, // Enable backups (optional)
-    ipv6: true, // Enable IPv6 (optional)
-    user_data: null, // User data script (optional)
-    private_networking: null, // Enable private networking (optional)
-    volumes: null, // Attach volumes (optional)
-    monitoring: true, // Add feedback for when the droplet has been created completely
-    tags: [],
+  const getDropletSize = (
+    size: "Slow" | "Medium" | "Fast" | "Blazing"
+  ): string => {
+    const { ENV } = process.env;
+    const isDevelopment = ENV && ENV === "development";
+    if (isDevelopment) return "c2-4vcpu-8gb-intel";
+
+    switch (size) {
+      case "Slow":
+        return "c-8-intel";
+      case "Medium":
+        return "c-16-intel";
+      case "Fast":
+        return "c-32-intel";
+      case "Blazing":
+        return "c-60-intel";
+      default:
+        return "c-8-intel";
+    }
   };
 
-  try {
-    const response: any = await fetch(`${apiUrl}/droplets`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiToken}`,
-      },
-      body: JSON.stringify(dropletConfig),
-    });
+  const name = dropletName;
+  const region = "nyc1";
+  const size = getDropletSize(speed);
+  const image = snapshotId;
 
-    if (!response.ok) {
+  let dropletConfig: DropletConfig = {
+    name, // Name of your droplet
+    region, // Choose a region (e.g., 'nyc1', 'sfo3', etc.)
+    size,
+    image, // OS image (e.g., 'ubuntu-24-10-x64', 'ubuntu-22-04-x64', 'centos-7-x64', etc.)
+    backups: false, // Enable backups (optional)
+    ipv6: true, // Enable IPv6 (optional)
+    monitoring: true, // Add feedback for when the droplet has been created completely
+  };
+
+  if (tags) dropletConfig.tags = tags;
+  if (ssh_keys) dropletConfig.ssh_keys = ssh_keys;
+
+  interface Droplet {
+    status: number;
+    droplet: DigitalOceanDroplet;
+  }
+
+  try {
+    const response = await axios.post<Droplet>(
+      `${apiUrl}/droplets`,
+      dropletConfig,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiToken}`,
+        },
+      }
+    );
+
+    if (response.status !== 202) {
       const notOkMsg = `Error creating droplet: ${response.statusText}`;
-      throw new Error(notOkMsg);
+      logData({ status: 400, response: notOkMsg });
+      return undefined;
     }
 
-    const data = await response.json();
-    const droplet = data.droplet;
-
+    const droplet: DigitalOceanDroplet = response.data.droplet;
     const createdMsg = `Completed Creating Droplet: ${dropletName} (${droplet?.id})`;
-    console.log({ status: 200, response: createdMsg });
+    logData({ status: 200, response: createdMsg });
+
+    const dropletId: number = droplet.id;
 
     // Wait for firewall to be deployed so firewall can be attached
     // No need to await before returning droplet, we can let this run in the background
     const ip = await checkDropletStatusOnInit(droplet?.id, firewallId);
-    const successMsg = `Completed setting up droplet with IP: ${ip}`;
-    console.log({ status: 201, response: successMsg });
 
+    if (!ip) {
+      const notOkMsg = `Error connecting to droplet ${droplet?.id} on port 80`;
+      logData({ status: 400, response: notOkMsg });
+      return undefined;
+    }
+
+    const successMsg = `Completed setting up droplet with IP: ${ip}`;
+    logData({ status: 201, response: successMsg });
+
+    // Add Domain Here...
+    let completeDomain: string | undefined = undefined;
     if (domain && subdomain && ip) {
       const resWithSubdomain = await addSubdomain(subdomain, ip);
       if (resWithSubdomain) {
         const subdomainSuccessMsg = `Droplet ${dropletName} is ready at ${subdomain}.${domain}`;
-        console.log({ status: 201, response: subdomainSuccessMsg });
+        logData({ status: 201, response: subdomainSuccessMsg });
+        completeDomain = `${subdomain}.${domain}`;
 
-        // Then configure SSL & DNS for server
-        const completeDomain = `${subdomain}.${domain}`;
-        const username = "root"; // Change this to your username if needed
-        await updateNginxConfig(
-          completeDomain,
-          ip,
-          username,
-          privateKeyPath,
-          privateKeyPassphrase
-        );
+        if (SSL_USER && SSL_PRIVATE_KEY_PATH && SSL_PRIVATE_KEY_PASSWORD) {
+          const username = SSL_USER || "";
+          const passphrase = SSL_PRIVATE_KEY_PASSWORD || "";
+
+          const privateKeyEnvPath = SSL_PRIVATE_KEY_PATH || "";
+          const privateKeyPath = privateKeyEnvPath.replace("~", os.homedir());
+          const privateKeyFound = fs.existsSync(privateKeyPath);
+
+          if (privateKeyFound) {
+            const privateKey = fs.readFileSync(privateKeyPath, "utf8");
+            const updatedNginx = await updateNginxConfig(
+              completeDomain,
+              ip,
+              username,
+              privateKey,
+              passphrase
+            );
+
+            if (updatedNginx.status !== 200) {
+              const errorMsg = `Error updating NGINX`;
+              logData({ status: 400, response: errorMsg });
+              return undefined;
+            }
+
+            const nginxUpdateCompleteMsg = `NGINX Update Successful`;
+            logData({ status: 101, response: nginxUpdateCompleteMsg });
+            return { server: droplet, subdomain, domain: completeDomain };
+          } else {
+            const noKeyMsg = `Private Key not found`;
+            logData({ status: 404, response: noKeyMsg });
+            return undefined;
+          }
+        } else {
+          const errorMsg = `Error creating droplet - Missing SSL in .env - Private Key Not Found`;
+          logData({ status: 400, response: errorMsg });
+          return undefined;
+        }
       }
     }
 
-    return droplet;
+    return undefined;
   } catch (error: DigitalOceanCatchError | any) {
     const catchMsg = `Catch error creating droplet: ${error?.message}`;
-    console.error({ status: 400, response: catchMsg });
+    logData({ status: 400, response: catchMsg, body: error });
     return undefined;
   }
 }

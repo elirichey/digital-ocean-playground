@@ -1,43 +1,58 @@
-declare var process: any;
-
-import dotenv from "dotenv";
-dotenv.config();
-
 import {
   listDropletsByAccount,
   checkDropletExistsByName,
   checkDropletExistsByID,
-  getDropletById,
 } from "./general-droplet";
 import {
   addFirewallToDroplet,
   createDroplet,
+  getDropletIP,
   getFirewallID,
 } from "./create-droplet";
 import { deleteDroplet } from "./delete-droplet";
 
 import {
+  LogBody,
   DigitalOceanDroplet,
   DropletLightResponse,
   ListDropletsResponse,
+  SuccessfulDroletDeployed,
 } from "../interfaces/interfaces";
+
+const logger = {
+  log: (response: any) => console.log("ServerGenerator", { response }),
+  error: (response: any) => console.error("ServerGenerator", { response }),
+};
+
+function logData(options: Partial<LogBody>) {
+  const log: Partial<LogBody> = {};
+  options.status ? (log.status = options.status) : null;
+  options.response ? (log.response = options.response) : null;
+  options.body ? (log.body = options.body) : null;
+  log.dateTime = new Date().getTime();
+
+  const hasStatusError =
+    options.status && (options.status === 400 || options.status === 404);
+  if (hasStatusError) logger.error(JSON.stringify(log));
+  else logger.log(JSON.stringify(log));
+}
 
 export async function listAccountDropletsGenerator(): Promise<
   ListDropletsResponse | string
 > {
   const res = await listDropletsByAccount();
 
-  const numberOfDroplets: number = res?.droplets?.length;
+  const numberOfDroplets: number = res?.length;
   const hasDroplets = numberOfDroplets > 0;
 
   if (!hasDroplets) {
     const failedMsg = `Account has no Droplets`;
-    console.error({ status: 400, response: failedMsg });
+    logData({ status: 400, response: failedMsg });
     return failedMsg;
   }
 
   const response: ListDropletsResponse = {
-    droplets: res.droplets,
+    droplets: res,
     numberOfDroplets,
   };
 
@@ -50,7 +65,7 @@ export async function listAccountDropletsGenerator(): Promise<
 
   const msgDropletsString = JSON.stringify(msgDroplets);
   const resMsg = `Account has ${numberOfDroplets} Droplets: ${msgDropletsString}`;
-  console.log({ status: 200, response: resMsg });
+  logData({ status: 200, response: resMsg });
 
   return response;
 }
@@ -59,7 +74,7 @@ export async function listDropletGenerator(
   dropletName?: string,
   dropletId?: number
 ): Promise<DigitalOceanDroplet | undefined> {
-  let droplet = undefined;
+  let droplet: DigitalOceanDroplet | undefined = undefined;
 
   if (dropletName) {
     droplet = await checkDropletExistsByName(dropletName);
@@ -67,60 +82,113 @@ export async function listDropletGenerator(
   }
 
   if (dropletId) {
-    droplet = await getDropletById(`${dropletId}`);
-    // droplet = await checkDropletExistsByID(dropletId);
+    droplet = await checkDropletExistsByID(dropletId);
     return droplet;
   }
 
   return droplet;
 }
 
-export async function createDropletGenerator(
-  dropletName: string,
-  create?: boolean,
-  subdomain?: string
-): Promise<DigitalOceanDroplet | string> {
-  let droplet = await checkDropletExistsByName(dropletName);
+export async function listDropletStatusGenerator(
+  dropletName?: string,
+  dropletId?: number
+): Promise<string | undefined> {
+  const droplet: DigitalOceanDroplet | undefined = await listDropletGenerator(
+    dropletName,
+    dropletId
+  );
 
-  if (!droplet && create) {
-    droplet = await createDroplet(dropletName, subdomain);
-  }
+  const status = droplet?.status;
+  return status;
+}
+
+export async function listDropletIpAddressGenerator(
+  dropletName?: string,
+  dropletId?: number
+): Promise<string | undefined> {
+  const droplet: DigitalOceanDroplet | undefined = await listDropletGenerator(
+    dropletName,
+    dropletId
+  );
 
   if (!droplet) {
-    const failureMsg = `Droplet ${dropletName} does not exist`;
-    return failureMsg;
+    const dropletNotFoundMsg: string = "Droplet not found";
+    logData({ status: 404, response: dropletNotFoundMsg });
+    return undefined;
+  }
+
+  const ip: string | undefined = await getDropletIP(droplet.id);
+  if (ip) {
+    const foundIpMsg = `Found IP for roplet droplet named ${droplet.name}: ${ip}`;
+    logData({ status: 200, response: foundIpMsg });
+    return ip;
+  }
+
+  let ipNotFoundMsg: string = "IP Address not found";
+  logData({ status: 404, response: ipNotFoundMsg });
+  return undefined;
+}
+
+export async function createDropletGenerator(
+  dropletName: string,
+  snapshotId: string,
+  subdomain: string,
+  speed: "Slow" | "Medium" | "Fast" | "Blazing",
+  tags?: string[]
+): Promise<SuccessfulDroletDeployed | undefined> {
+  let server: DigitalOceanDroplet | undefined = undefined;
+  let domainVal: string | undefined = undefined;
+  const dropletExists = await checkDropletExistsByName(dropletName, true);
+  if (typeof dropletExists !== "undefined") server = dropletExists;
+  else {
+    const newDroplet = await createDroplet(
+      dropletName,
+      snapshotId,
+      subdomain,
+      speed,
+      tags
+    );
+    domainVal = newDroplet?.domain;
+    const serverVal = newDroplet?.server;
+    server = serverVal;
+  }
+
+  if (!server) {
+    const failureMsg = `Create droplet ${dropletName} failed!`;
+    logData({ status: 400, response: failureMsg });
+    return undefined;
   }
 
   const endTime = new Date().getTime();
   const successMsg = `Droplet with name ${dropletName} has been created: TS_END ${endTime}`;
-  console.log({ status: 201, response: successMsg });
-  return droplet;
+  logData({ status: 201, response: successMsg });
+  return { server, domain: domainVal, subdomain };
 }
 
 export async function deleteDropletGenerator(
   dropletName?: string,
-  dropletId?: number,
-  subdomain?: string
+  dropletId?: number
 ): Promise<string | undefined> {
   const droplet = await listDropletGenerator(dropletName, dropletId);
 
   if (!droplet) {
     const id = dropletName || dropletId;
     const noDropletMSg = `Droplet with identifier ${id} does not exist`;
-    console.error({ status: 404, response: noDropletMSg });
+    logData({ status: 404, response: noDropletMSg });
     return undefined;
   }
 
-  const res = await deleteDroplet(droplet?.id, subdomain);
+  const id: number = droplet.id;
+  const res = await deleteDroplet(id);
 
   if (!res) {
     const failedMsg = `Delete Droplet Failed for ID: ${droplet?.id}`;
-    console.error({ status: 400, response: failedMsg });
+    logData({ status: 400, response: failedMsg });
     return failedMsg;
   }
 
   const resMsg = `Deleted Droplet with ID: ${droplet?.id}`;
-  console.log({ status: 200, response: resMsg });
+  logData({ status: 200, response: resMsg });
 
   return resMsg;
 }
@@ -134,12 +202,12 @@ export async function addFirewallToDropletGenerator(
   if (!droplet) {
     const id = dropletName || dropletId;
     const noDropletMSg = `Droplet with identifier ${id} does not exist`;
-    console.error({ status: 404, response: noDropletMSg });
+    logData({ status: 404, response: noDropletMSg });
     return undefined;
   }
 
   const firewall = await getFirewallID();
-  let firewallObjId = undefined;
+  let firewallObjId: string | undefined = undefined;
   if (firewall) firewallObjId = firewall?.id;
 
   if (!droplet?.id || !firewallObjId) {
@@ -148,11 +216,11 @@ export async function addFirewallToDropletGenerator(
     const missingBothCredsMsg = `Missing Droplet ID and Firewall ID`;
 
     if (!droplet?.id) {
-      console.log({ status: 404, response: missingDropletCredsMsg });
+      logData({ status: 404, response: missingDropletCredsMsg });
     } else if (!firewallObjId) {
-      console.log({ status: 404, response: missingFirewallCredsMsg });
+      logData({ status: 404, response: missingFirewallCredsMsg });
     } else if (!droplet?.id && !firewallObjId) {
-      console.log({ status: 404, response: missingBothCredsMsg });
+      logData({ status: 404, response: missingBothCredsMsg });
     }
 
     return;
@@ -162,13 +230,13 @@ export async function addFirewallToDropletGenerator(
 
   if (!res) {
     const failedMsg = `Add Firewall Failed for Droplet with ID: ${droplet?.id}`;
-    console.error({ status: 400, response: failedMsg });
+    logData({ status: 400, response: failedMsg });
     return failedMsg;
   }
 
   const endTime = new Date().getTime();
   const resMsg = `Added Firewall to Droplet with ID: ${droplet?.id}: TS_END ${endTime}`;
-  console.log({ status: 200, response: resMsg });
+  logData({ status: 200, response: resMsg });
 
   return resMsg;
 }

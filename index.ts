@@ -19,9 +19,11 @@ import { getAccountSslCerts } from "./src/ssl";
 const {
   DIGITAL_OCEAN_ACCESS_TOKEN,
   DIGITAL_OCEAN_DOMAIN,
+  DIGITAL_OCEAN_SNAPSHOT_ID,
 }: DigitalOceanCredentials = process.env;
 const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
 const domain = DIGITAL_OCEAN_DOMAIN;
+const snapshotId = DIGITAL_OCEAN_SNAPSHOT_ID;
 
 async function run() {
   const sslMessage = "Will return a list of SSL certifications tied to account";
@@ -150,10 +152,15 @@ async function run() {
 
   // Create a new Droplet...
 
-  if (dropletName && create) {
+  if (dropletName && create && subdomain) {
     const startMsg = `Create Droplet Generator: ${dropletName}: ${startString}`;
     console.log({ status: 100, response: startMsg });
-    const res = await createDropletGenerator(dropletName, create, subdomain);
+    const res = await createDropletGenerator(
+      dropletName,
+      snapshotId,
+      subdomain,
+      "Slow"
+    );
     return res;
   }
 
@@ -163,7 +170,7 @@ async function run() {
     const startMsg = `Delete Droplet Generator: ${dropletName}: ${startString}`;
     console.log({ status: 100, response: startMsg });
     const numberId = dropletId ? parseInt(dropletId) : undefined;
-    const res = await deleteDropletGenerator(dropletName, numberId, subdomain);
+    const res = await deleteDropletGenerator(dropletName, numberId);
     return res;
   }
 

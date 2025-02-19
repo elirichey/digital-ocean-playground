@@ -32,6 +32,18 @@ export interface DigitalOceanCatchError {
   stack?: string;
 }
 
+export interface LogBody {
+  status?: number;
+  response?: any;
+  body?: any;
+  route?: string;
+  user?: any;
+  params?: any;
+  id?: string;
+  file?: any;
+  dateTime: number;
+}
+
 // ********************* SSH - Main ********************* //
 
 export interface SslRecord {
@@ -113,14 +125,14 @@ export interface DropletConfig {
   region: string;
   size: string;
   image: string;
-  ssh_keys: number[] | null;
+  ssh_keys?: string[] | null;
   backups: boolean;
   ipv6: boolean;
-  user_data: null;
-  private_networking: null;
-  volumes: null;
+  user_data?: null;
+  private_networking?: null;
+  volumes?: null;
   monitoring?: boolean;
-  tags: string[];
+  tags?: string[];
 }
 
 export interface DigitalOceanDroplet {
@@ -145,6 +157,12 @@ export interface DigitalOceanDroplet {
   networks: DropletNetworks;
   region: DropletRegion;
   tags: string[];
+}
+
+export interface SuccessfulDroletDeployed {
+  server: DigitalOceanDroplet;
+  subdomain?: string;
+  domain?: string;
 }
 
 // ********************* Droplet Details ********************* //

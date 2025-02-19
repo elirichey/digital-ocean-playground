@@ -3,95 +3,97 @@ declare var process: any;
 import dotenv from "dotenv";
 dotenv.config();
 
+import axios from "axios";
 import {
+  LogBody,
   DigitalOceanCatchError,
-  DigitalOceanCredentials,
   DigitalOceanDroplet,
   DropletNetwork,
-  DropletsResponse,
 } from "../interfaces/interfaces";
 // import { getDropletIP } from "./create-droplet";
 
-const { DIGITAL_OCEAN_ACCESS_TOKEN }: DigitalOceanCredentials = process.env;
+const { DIGITAL_OCEAN_ACCESS_TOKEN } = process.env;
 
 const apiToken = DIGITAL_OCEAN_ACCESS_TOKEN;
 const apiUrl = "https://api.digitalocean.com/v2";
 
-export async function listDropletsByAccount(): Promise<DropletsResponse> {
+const logger = {
+  log: (response: any) => console.log("ServerGeneral", { response }),
+  error: (response: any) => console.error("ServerGeneral", { response }),
+};
+
+function logData(options: Partial<LogBody>) {
+  const log: Partial<LogBody> = {};
+  options.status ? (log.status = options.status) : null;
+  options.response ? (log.response = options.response) : null;
+  options.body ? (log.body = options.body) : null;
+  log.dateTime = new Date().getTime();
+
+  const hasStatusError =
+    options.status && (options.status === 400 || options.status === 404);
+  if (hasStatusError) logger.error(JSON.stringify(log));
+  else logger.log(JSON.stringify(log));
+}
+
+export async function listDropletsByAccount(): Promise<DigitalOceanDroplet[]> {
+  interface Droplets {
+    droplets: DigitalOceanDroplet[];
+  }
+
+  console.log({ apiToken, apiUrl });
+
   try {
-    const response = await fetch(`${apiUrl}/droplets`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${apiToken}` },
+    const response = await axios.get<Droplets>(`${apiUrl}/droplets`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiToken}`,
+      },
     });
 
-    if (!response.ok) {
+    if (response.status !== 200) {
       const notOkMsg = `Error fetching account droplets: ${response.statusText}`;
       throw new Error(notOkMsg);
     }
 
-    const data: DropletsResponse = await response.json();
-    const resMsg = `Got Droplets for Account`;
-    console.log({ status: 200, response: resMsg });
-    return data;
+    const droplets: DigitalOceanDroplet[] = response.data.droplets;
+    const length: number = droplets.length;
+    const resMsg = `Got ${length} Droplets for Account`;
+    logData({ status: 200, response: resMsg });
+
+    return droplets;
   } catch (error: DigitalOceanCatchError | any) {
     const catchMsg = `Catch error checking account droplets: ${error?.message}`;
-    console.log({
-      message: error?.message,
-      name: error?.name,
-      stack: error?.stack,
+    logData({
+      status: error?.status || 400,
+      response: error?.message,
+      params: { name: error?.name, stack: error?.stack },
     });
-    console.error({ status: 400, response: catchMsg });
-    return { droplets: [] };
-  }
-}
-
-// DigitalOceanDroplet
-export async function getDropletById(id: string): Promise<any> {
-  try {
-    const response = await fetch(`${apiUrl}/droplets/${id}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${apiToken}` },
-    });
-
-    if (!response.ok) {
-      const notOkMsg = `Error fetching account droplet with ID ${id}: ${response.statusText}`;
-      throw new Error(notOkMsg);
-    }
-
-    const data: DropletsResponse = await response.json();
-    const resMsg = `Got Droplet ${id} for Account`;
-    console.log({ status: 200, response: resMsg, body: data });
-    return data;
-  } catch (error: DigitalOceanCatchError | any) {
-    const catchMsg = `Catch error checking account for droplet with ID ${id}: ${error?.message}`;
-    console.log({
-      message: error?.message,
-      name: error?.name,
-      stack: error?.stack,
-    });
-    console.error({ status: 400, response: catchMsg });
-    return { droplets: [] };
+    logData({ status: 400, response: catchMsg });
+    return [];
   }
 }
 
 export async function checkDropletExistsByName(
-  dropletName: string
+  dropletName: string,
+  skipThrowError?: boolean
 ): Promise<DigitalOceanDroplet | undefined> {
   const accountDroplets = await listDropletsByAccount();
-  if (accountDroplets && accountDroplets.droplets.length === 0) {
+  if (accountDroplets && accountDroplets.length === 0) {
     const noneFoundMsg = `No Droplets Found`;
-    console.log({ status: 404, response: noneFoundMsg });
+    if (skipThrowError) logData({ status: 102, response: noneFoundMsg });
+    else logData({ status: 404, response: noneFoundMsg });
     return undefined;
   }
 
   // Check if any droplet has the specified name
-  const dropletExists = accountDroplets.droplets.some(
+  const dropletExists = accountDroplets.some(
     (droplet) => droplet.name === dropletName
   );
 
   if (dropletExists) {
-    const droplet: DigitalOceanDroplet | undefined =
-      accountDroplets.droplets.find((droplet) => droplet.name === dropletName);
+    const droplet: DigitalOceanDroplet | undefined = accountDroplets.find(
+      (droplet) => droplet.name === dropletName
+    );
 
     if (!droplet) return undefined;
 
@@ -100,15 +102,15 @@ export async function checkDropletExistsByName(
     );
 
     const ipAddress = dropletNetwork?.ip_address;
-    const successMsg = `Droplet with the name "${dropletName}" exists. It has ID ${
+    const successMsg = `Droplet with the name ${dropletName} exists. It has ID ${
       droplet?.id
     }${ipAddress ? ` and an IP address of ${ipAddress}.` : "."}`;
 
-    console.log({ status: 200, response: successMsg });
+    logData({ status: 200, response: successMsg });
     return droplet;
   } else {
-    const noExistMsg = `Droplet with the name "${dropletName}" does not exist.`;
-    console.log({ status: 404, response: noExistMsg });
+    const noExistMsg = `Droplet with the name ${dropletName} does not exist.`;
+    logData({ status: skipThrowError ? 100 : 404, response: noExistMsg });
     return undefined;
   }
 }
@@ -117,31 +119,32 @@ export async function checkDropletExistsByID(
   dropletId: number
 ): Promise<DigitalOceanDroplet | undefined> {
   const accountDroplets = await listDropletsByAccount();
-  if (accountDroplets && accountDroplets.droplets.length === 0) {
+  if (accountDroplets && accountDroplets.length === 0) {
     const noneFoundMsg = `No Droplets Found`;
-    console.log({ status: 404, response: noneFoundMsg });
+    logData({ status: 404, response: noneFoundMsg });
     return undefined;
   }
 
   // Check if any droplet has the specified ID
-  const dropletExists = accountDroplets.droplets.some(
+  const dropletExists = accountDroplets.some(
     (droplet) => droplet.id === dropletId
   );
 
   if (dropletExists) {
-    const droplet: DigitalOceanDroplet | undefined =
-      accountDroplets.droplets.find((droplet) => droplet.id === dropletId);
+    const droplet: DigitalOceanDroplet | undefined = accountDroplets.find(
+      (droplet) => droplet.id === dropletId
+    );
 
     const successMsg = `Droplet with the ID "${dropletId}" exists. It's name is ${droplet?.name}.`;
-    console.log({ status: 200, response: successMsg, body: droplet });
+    logData({ status: 200, response: successMsg });
 
     // const ip = await getDropletIP(`${dropletId}`);
-    // console.log({ ip });
+    // logData({ ip });
 
     return droplet || undefined;
   } else {
     const noExistMsg = `Droplet with the ID "${dropletId}" does not exist.`;
-    console.log({ status: 404, response: noExistMsg });
+    logData({ status: 404, response: noExistMsg });
     return undefined;
   }
 }
